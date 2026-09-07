@@ -1,0 +1,58 @@
+{
+  "network": "bscTestnet",
+  "chainId": 97,
+  "explorer": "https://testnet.bscscan.com",
+  "rpcUrl": "https://bsc-testnet-rpc.publicnode.com",
+  "deployer": "0x4B718eE56D2217fcd4315433B32C95DdC220b2AB",
+  "deployedAt": "2026-09-06",
+  "deployTx": "broadcast/DeploySaku.s.sol/97/run-latest.json",
+  "contracts": {
+    "MockStableToken": {
+      "address": "0xD12196E766F86F6Fc352d5CECe7637bCd9026a83",
+      "symbol": "mBUSD",
+      "decimals": 18,
+      "initialSupply": "1000000000000000000000000",
+      "role": "stableToken settlement asset (PRD 5.1 step 6)"
+    },
+    "MockUSDC": {
+      "address": "0x3d2937A6cDb76a1B199b87302D112D584795d3b1",
+      "symbol": "USDC",
+      "decimals": 6,
+      "initialSupply": "1000000000000",
+      "role": "example token the user locks in the offramp demo"
+    },
+    "SakuOfframpEscrow": {
+      "address": "0xe9Bc98E5Ac1942AbE4E79A4219868FF0351579A0",
+      "role": "PRD Section 5 Lock & Release escrow",
+      "constructorArgs": [
+        "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
+        "0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526",
+        "0xD12196E766F86F6Fc352d5CECe7637bCd9026a83",
+        "0x4B718eE56D2217fcd4315433B32C95DdC220b2AB"
+      ],
+      "owner": "0x4B718eE56D2217fcd4315433B32C95DdC220b2AB",
+      "settler": "0x4B718eE56D2217fcd4315433B32C95DdC220b2AB"
+    },
+    "SakuStaking": {
+      "address": "0xcF651Cd85b64B54f0b2B48F1D74A4B475cee1E9a",
+      "role": "Stake USDC, earn USDC. Rewards funded, not minted.",
+      "stakingToken": "0x3d2937A6cDb76a1B199b87302D112D584795d3b1",
+      "rewardsFunded": "50000000000",
+      "rewardsDurationSeconds": 31536000
+    }
+  },
+  "infrastructure": {
+    "pancakeRouterV2": "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
+    "pancakeFactoryV2": "0x6725F303b657a9451d8BA641348b6761A6CC7a17",
+    "chainlinkBnbUsdFeed": "0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526",
+    "usdcMbusdPair": "0xF032B04A93621dE9fe9c8eaFB209bE1012d765dE"
+  },
+  "smokeTest": {
+    "note": "Full PRD 5.1 flow exercised against live BSC Testnet on 2026-09-06",
+    "addLiquidity": "0xf29440eb572b4805dfd2f1561cdadfe780fc054e6875e3b6885fefaaef144bed",
+    "lockSettled": "0xfb93952fde006966717a67f9a4e0d969e2518bb3278ba0a33d57607f2063eb7e",
+    "settle": "0xab9e00a4a958e5c6e5d2e90d68845d0a4d269b8b3893e7bc2429b0d05b10af26",
+    "lockRefunded": "0x1f581e52f5e9af108548b21e44c32f25e41b80082dded31b8417c0adabc33327",
+    "refund": "0x44be7a01ac762c5394b26f24b049a15caba43dcea4d85ee2de7b1144b953284a"
+  }
+}

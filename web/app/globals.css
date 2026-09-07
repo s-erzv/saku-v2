@@ -1,0 +1,234 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(0.98 0.002 257);
+  --foreground: oklch(0.15 0.02 257);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.02 257);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.02 257);
+  
+  --primary: oklch(0.85 0.16 85); 
+  --primary-foreground: oklch(0.15 0.02 257);
+  
+  --secondary: oklch(0.75 0.15 65);
+  --secondary-foreground: oklch(1 0 0);
+  
+  --muted: oklch(0.95 0.01 85);
+  --muted-foreground: oklch(0.4 0.02 257);
+  
+  --accent: oklch(0.8 0.18 75);
+  --accent-foreground: oklch(0.15 0.02 257);
+  
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.92 0.01 85);
+  --input: oklch(0.94 0.01 85);
+  --ring: oklch(0.85 0.16 85);
+  
+  --radius: 1.25rem; 
+}
+
+.dark {
+  --background: oklch(0.12 0.02 257);
+  --foreground: oklch(0.97 0.01 0);
+  --card: oklch(0.16 0.02 257);
+  --primary: oklch(0.85 0.16 85);
+  --primary-foreground: oklch(0.12 0.02 257);
+  --secondary: oklch(0.75 0.15 65);
+  --secondary-foreground: oklch(1 0 0);
+  --border: oklch(0.25 0.02 257);
+}
+
+@theme inline {
+  --font-sans: "Geist", "Geist Fallback";
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-saku-orange: #F0A353;
+  --color-saku-yellow: #FFD362;
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+  }
+}
+
+/* Add custom animations for BayarDulu */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes confetti {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-scale {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.animate-slide-in {
+  animation: slideInUp 0.4s ease-out;
+}
+
+.animate-slide-out {
+  animation: slideDown 0.3s ease-in;
+}
+
+.animate-confetti {
+  animation: confetti 0.6s ease-out forwards;
+}
+
+.animate-pulse-scale {
+  animation: pulse-scale 0.6s ease-out;
+}
+
+/* Envelope Animation Keyframes */
+@keyframes envelope-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes envelope-shake {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-2deg);
+  }
+  75% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-envelope-pulse {
+  animation: envelope-pulse 2s ease-in-out infinite;
+}
+
+.animate-envelope-shake {
+  animation: envelope-shake 0.5s ease-in-out;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none; 
+  }
+  
+  .saku-glass {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl;
+  }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-in {
+  animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.swiper-pagination-bullet-active {
+  background: #000 !important;
+}

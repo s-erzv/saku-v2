@@ -1,0 +1,18 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEzNTYxMDQsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhCMjkwYUY0OWFiZDI1ZTc0MmJDRDY0OWM3MjhCRUE2ODBDOTExMTkzIn0",
+    "payload": "eyJkb21haW4iOiJzYWtrdS5uZXRsaWZ5LmFwcCJ9",
+    "signature": "PozhC5keNI3dWDxNs0C2d75poUv/MgaGfbTDKu1geMZRiVy1FEgPSYfHfzjdDitb3FC8vKbURLCS2F5SiyLcjhs="
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Saku",
+    "description": "Send and receive crypto with just a phone number.",
+    "homeUrl": "https://sakku.netlify.app",
+    "iconUrl": "https://sakku.netlify.app/logo.png",
+    "primaryCategory": "finance",
+    "splashBackgroundColor": "#000000",
+    "tags": ["finance", "crypto", "web3"],
+    "splashImageUrl": "https://sakku.netlify.app/splash-img.png"
+  }
+}
