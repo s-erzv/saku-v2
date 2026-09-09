@@ -20,6 +20,7 @@ import { quoteSwap, RATE_EXPIRY_SECONDS } from '@/lib/escrow';
 import { currencyForCountry } from '@/lib/currency';
 import { getUsdRate } from '@/lib/fx';
 import { getFeeConfig, offrampFee } from '@/lib/fees';
+import { getCompliancePolicy, isOfframpAllowed, offrampDisabledMessage } from '@/lib/compliance';
 
 /** Stable token is 18-decimal (MockStableToken). */
 const STABLE_DECIMALS = 18;
@@ -52,9 +53,25 @@ export async function GET(request: Request) {
     const currency = currencyForCountry(user?.country_code);
     const fx = await getUsdRate(currency.code);
 
+    // PRD Section 6: the off-ramp is a per-country policy decision, not a universal feature.
+    // Checked before anything else — an amount-bearing request from a disabled country is
+    // refused outright, and the amount-less "rate + limits" request still needs to carry this
+    // so the UI can show why the form is blocked rather than a generic error later.
+    const policy = await getCompliancePolicy(user?.country_code);
+    const offrampEnabled = isOfframpAllowed(policy);
+
+    if (!offrampEnabled && Number.isFinite(amountUsdc) && amountUsdc > 0) {
+      return NextResponse.json(
+        { error: offrampDisabledMessage(policy), offrampEnabled: false },
+        { status: 403 }
+      );
+    }
+
     // Without an amount the caller only wants the rate and the limits.
     if (!Number.isFinite(amountUsdc) || amountUsdc < MIN_OFFRAMP_USDC || amountUsdc > MAX_OFFRAMP_USDC) {
       return NextResponse.json({
+        offrampEnabled,
+        offrampDisabledReason: offrampEnabled ? undefined : offrampDisabledMessage(policy),
         currency: currency.code,
         symbol: currency.symbol,
         decimals: currency.decimals,
@@ -68,23 +85,27 @@ export async function GET(request: Request) {
       });
     }
 
-    const amountIn = parseUnits(amountUsdc.toString(), USDC_DECIMALS);
+    // The fee is added on top (mirrors top up): `amountUsdc` is what the user wants delivered,
+    // `fee.grossUsdc` is what actually has to be locked and swapped to cover that plus the fee.
+    const fee = offrampFee(amountUsdc);
+    const amountIn = parseUnits(fee.grossUsdc.toString(), USDC_DECIMALS);
     const { expectedOut, minAmountOut } = await quoteSwap(getUsdcAddress(), amountIn);
 
     const stableOut = Number(formatUnits(expectedOut, STABLE_DECIMALS));
 
-    // The fee comes out of the amount, so the recipient is paid on the net. Taking it from the
-    // locked amount keeps one number on-chain and one number in the payout.
-    const fee = offrampFee(amountUsdc);
-    const netRatio = fee.netUsdc / amountUsdc;
+    // Only the net (delivered) slice of the swap proceeds goes to the recipient — the rest is
+    // the platform fee, realized by keeping that proportion of the swap output.
+    const netRatio = fee.netUsdc / fee.grossUsdc;
     const fiatAmount = Math.round(stableOut * netRatio * fx.rate * 100) / 100;
 
     return NextResponse.json({
       amountUsdc,
-      // Real: what the pool would actually return.
+      // What must actually be locked on-chain to deliver `amountUsdc` after the fee.
+      grossUsdc: fee.grossUsdc,
+      // Real: what the pool would actually return for locking `grossUsdc`.
       stableOut,
       minStableOut: Number(formatUnits(minAmountOut, STABLE_DECIMALS)),
-      // Simulated: what the mock fiat leg would pay out, after the platform fee.
+      // Simulated: what the mock fiat leg would pay out.
       fiatAmount,
       feeUsdc: fee.feeUsdc,
       netUsdc: fee.netUsdc,
