@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: "img-src 'self' data: blob: https:; connect-src 'self' https: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline';",
+            value: "img-src 'self' data: blob: https:; connect-src 'self' https: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; worker-src 'self'; manifest-src 'self';",
           },
         ],
       },

@@ -37,6 +37,11 @@ export function middleware(request: NextRequest) {
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com; " +
     // flag-icons for the country-code picker on the login screen.
     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+    // The service worker (public/sw.js) is same-origin, so `default-src 'self'` already covers
+    // it — stated explicitly anyway because a CSP blocking a worker fails silently, with no
+    // console error and no registration, which is a miserable thing to debug from scratch.
+    "worker-src 'self'; " +
+    "manifest-src 'self'; " +
     "img-src 'self' data: blob: https:; " +
     "font-src 'self' data: https://cdn.jsdelivr.net; " +
     "connect-src 'self' " +
