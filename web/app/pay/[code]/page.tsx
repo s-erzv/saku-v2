@@ -21,12 +21,12 @@ import { CONTRACTS, explorerTxUrl } from "@/lib/config"
 export default function PayRequestPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params)
   const router = useRouter()
-  const { user, wallet, token, isLoading, isAuthenticated } = useAuth()
+  const { user, wallet, isLoading, isAuthenticated } = useAuth()
   const { address } = useMpcWallet()
   const { phase, details, error, paidTxHash, load, pay } = usePayRequest(code)
 
   const [amount, setAmount] = useState("")
-  const currency = useLocalCurrency(token)
+  const currency = useLocalCurrency(isAuthenticated)
 
   const walletAddress = address ?? wallet?.address ?? null
   const { balances, refresh } = useTokenBalances(walletAddress)

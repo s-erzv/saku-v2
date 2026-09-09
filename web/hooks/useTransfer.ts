@@ -45,7 +45,7 @@ export type TransferPhase =
   | 'failed';
 
 export function useTransfer() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { getSigner, address } = useMpcWallet();
 
   const [phase, setPhase] = useState<TransferPhase>('idle');
@@ -69,7 +69,7 @@ export function useTransfer() {
       try {
         const res = await fetch('/api/transfer/resolve', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phone, countryCode }),
         });
         const data = await res.json();
@@ -99,7 +99,7 @@ export function useTransfer() {
         return null;
       }
     },
-    [token]
+    [isAuthenticated]
   );
 
   /** Sign and send. `amount` is human-readable USDC, e.g. "1.25". */
@@ -129,7 +129,7 @@ export function useTransfer() {
         }
 
         // Fetched before signing so the fee leg does not wait on a round trip afterwards.
-        const treasury = await getTreasuryAddress(token);
+        const treasury = await getTreasuryAddress(isAuthenticated);
 
         const tx = await usdc.transfer(to, value);
         setTxHash(tx.hash);
@@ -146,7 +146,7 @@ export function useTransfer() {
         // would just 404 on a transaction the node has not mined yet.
         await fetch('/api/transfer/record', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
         }).catch(() => {
           /* History is a cache. The transfer already happened. */
@@ -166,7 +166,7 @@ export function useTransfer() {
         return null;
       }
     },
-    [address, getSigner, token]
+    [address, getSigner, isAuthenticated]
   );
 
   return { phase, recipient, txHash, error, resolveRecipient, send, reset };

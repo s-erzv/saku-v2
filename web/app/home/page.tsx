@@ -15,7 +15,7 @@ import OnboardingSlider from "@/components/home/onboarding-slider"
 
 export default function HomePage() {
   const router = useRouter()
-  const { user, token, isLoading, isAuthenticated } = useAuth()
+  const { user, isLoading, isAuthenticated } = useAuth()
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace("/get-started")
@@ -29,7 +29,7 @@ export default function HomePage() {
     )
   }
 
-  if (!user || !token) return null
+  if (!user || !isAuthenticated) return null
 
   return (
     <div className="min-h-dvh bg-white font-sans relative max-w-lg mx-auto">

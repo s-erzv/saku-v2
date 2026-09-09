@@ -10,30 +10,21 @@
  */
 
 import { NextResponse } from 'next/server';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { createUserWallet } from '@/lib/privy';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { ensureGasFor } from '@/lib/gas';
 import { CHAIN_ID } from '@/lib/chain';
-import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
-import { extractClientIP } from '@/lib/auth-middleware';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
+import { clientKey } from '@/lib/request-meta';
+import { logAuthEvent } from '@/lib/audit-log';
 
 export async function POST(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const session = await getSession(request);
+  if (!session) return unauthorized();
 
-  let session;
-  try {
-    session = await verifyToken(sessionToken);
-  } catch {
-    return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
-  }
-
-  const clientIP = extractClientIP(request) || 'unknown';
-  const ipRateLimit = rateLimiter.check(`ip:${clientIP}`, RATE_LIMITS.IP_BASED);
-  if (!ipRateLimit.allowed) {
+  const limit = await checkRateLimit(clientKey(request, 'provision'), RATE_LIMITS.IP_BASED);
+  if (!limit.allowed) {
     return NextResponse.json({ error: 'Too many requests from your device.' }, { status: 429 });
   }
 
@@ -84,6 +75,15 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+
+    // A wallet coming into existence is a once-per-account event and the moment an address starts
+    // being able to hold money. Worth a row on its own.
+    await logAuthEvent(request, {
+      type: 'wallet_provisioned',
+      userId: session.userId,
+      phoneHash: session.phoneHash,
+      metadata: { address: data.address },
+    });
 
     const gas = await ensureGasFor(session.userId, wallet.address);
     return NextResponse.json({ address: data.address, gas: gas.status });

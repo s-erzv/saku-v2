@@ -1,21 +1,22 @@
 'use client';
 
 /**
- * Wallet backed by Turnkey key management (PRD Fase 4, revised — see docs/mpc-setup.md).
+ * Wallet backed by server-side key management (see docs/mpc-setup.md).
  *
- * This replaces the Web3Auth MPC integration after its `sapphire_devnet` signing infrastructure
+ * This replaced the Web3Auth MPC integration after its `sapphire_devnet` signing infrastructure
  * proved unreliable under real testing: transactions would hang indefinitely with no error,
- * confirmed on-chain across multiple independent test sessions. Turnkey moves signing entirely
- * server-side — every wallet lives in its own Turnkey sub-organization, and Saku's backend,
- * authenticated with its own API keypair, signs on behalf of whichever session is currently
- * valid.
+ * confirmed on-chain across multiple independent test sessions. Signing now happens entirely
+ * server-side — every wallet lives with the signing provider (`lib/privy.ts`), and Saku's backend,
+ * authenticated with its own API keypair, signs on behalf of whichever session is currently valid.
  *
- * The honest trade this makes: Saku's server can now always produce a signature given a valid
- * session, the same way a valid OTP always could here. That is a stronger claim than the
- * Web3Auth design aimed for (device share + network share, so the server alone was never
- * enough) — but it is a claim that is actually true today, which the old design's signing hang
- * was not. The private key material itself still never touches this process or any database; it
- * lives inside Turnkey's enclave.
+ * The honest trade, and it is worth saying plainly rather than calling this non-custodial:
+ * **Saku's server can produce a signature for any user's wallet whenever it chooses.** The key
+ * material never touches this process or any database — it lives inside the provider's enclave —
+ * but the authority to use it lives here. That is custodial, and the product copy says so.
+ *
+ * What bounds it is on the server, not in this file: `lib/tx-policy.ts` refuses anything that is
+ * not one of the handful of calls Saku actually makes, `lib/spend-limits.ts` caps the daily total,
+ * and every decision lands in `signing_events`.
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -29,8 +30,8 @@ interface MpcWalletContextValue {
   status: MpcStatus;
   address: string | null;
   error: string | null;
-  /** Get-or-create the wallet for the Saku session token issued by `/api/verify-otp`. */
-  login: (sessionToken: string) => Promise<void>;
+  /** Get-or-create the wallet for the current session. */
+  login: () => Promise<void>;
   /** An ethers signer whose signing calls go through Saku's backend to Turnkey. */
   getSigner: () => Promise<AbstractSigner>;
   logout: () => void;
@@ -39,28 +40,31 @@ interface MpcWalletContextValue {
 const MpcWalletContext = createContext<MpcWalletContextValue | undefined>(undefined);
 
 /**
- * An ethers signer that never holds key material. `signTransaction` posts the populated,
- * RLP-serialized transaction to `/api/mpc/sign`, which looks up this session's Turnkey
- * sub-organization and signs there. `AbstractSigner.sendTransaction` is what calls this — it
- * populates the transaction (nonce, gas, chainId) and hands `signTransaction` an already-built
- * `Transaction`, so there is nothing left to fill in here.
+ * An ethers signer that never holds key material — or a session token.
+ *
+ * `signTransaction` posts the populated, RLP-serialized transaction to `/api/mpc/sign`, which
+ * resolves the wallet from the session cookie the browser attaches on its own. It used to carry
+ * the bearer token as a field on this object; it does not need one now, and not having one is the
+ * point: there is no copy of the session for a script to find here either.
+ *
+ * `AbstractSigner.sendTransaction` is what calls this — it populates the transaction (nonce, gas,
+ * chainId) and hands `signTransaction` an already-built `Transaction`, so there is nothing left to
+ * fill in.
  */
-class TurnkeyBackendSigner extends AbstractSigner {
+class BackendSigner extends AbstractSigner {
   private readonly address: string;
-  private readonly sessionToken: string;
 
-  constructor(provider: Provider, address: string, sessionToken: string) {
+  constructor(provider: Provider, address: string) {
     super(provider);
     this.address = address;
-    this.sessionToken = sessionToken;
   }
 
   async getAddress(): Promise<string> {
     return this.address;
   }
 
-  connect(provider: Provider | null): TurnkeyBackendSigner {
-    return new TurnkeyBackendSigner(provider as Provider, this.address, this.sessionToken);
+  connect(provider: Provider | null): BackendSigner {
+    return new BackendSigner(provider as Provider, this.address);
   }
 
   async signTransaction(tx: TransactionRequest): Promise<string> {
@@ -68,7 +72,7 @@ class TurnkeyBackendSigner extends AbstractSigner {
 
     const response = await fetch('/api/mpc/sign', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.sessionToken}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ unsignedTransaction }),
     });
 
@@ -91,22 +95,20 @@ class TurnkeyBackendSigner extends AbstractSigner {
 }
 
 export function MpcWalletProvider({ children }: { children: ReactNode }) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   /** Guards the auto-login effect so a re-render never starts a second provisioning call. */
   const autoLoginStarted = useRef(false);
-  const sessionTokenRef = useRef<string | null>(null);
 
   const [status, setStatus] = useState<MpcStatus>('idle');
   const [address, setAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const login = useCallback(async (sessionToken: string) => {
+  const login = useCallback(async () => {
     setError(null);
     setStatus('connecting');
     try {
       const response = await fetch('/api/mpc/provision', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${sessionToken}` },
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}) as { error?: string });
@@ -114,7 +116,6 @@ export function MpcWalletProvider({ children }: { children: ReactNode }) {
       }
       const { address: walletAddress } = (await response.json()) as { address: string };
 
-      sessionTokenRef.current = sessionToken;
       setAddress(walletAddress);
       setStatus('connected');
     } catch (err) {
@@ -125,16 +126,15 @@ export function MpcWalletProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getSigner = useCallback(async () => {
-    if (!address || !sessionTokenRef.current) throw new Error('Wallet is not connected');
+    if (!address) throw new Error('Wallet is not connected');
     const provider = new JsonRpcProvider(NETWORK_CONFIG.rpcUrl, NETWORK_CONFIG.chainId, {
       staticNetwork: true,
       pollingInterval: RECEIPT_POLLING_MS,
     });
-    return new TurnkeyBackendSigner(provider, address, sessionTokenRef.current);
+    return new BackendSigner(provider, address);
   }, [address]);
 
   const logout = useCallback(() => {
-    sessionTokenRef.current = null;
     setAddress(null);
     setStatus('idle');
   }, []);
@@ -148,15 +148,15 @@ export function MpcWalletProvider({ children }: { children: ReactNode }) {
    */
   useEffect(() => {
     if (autoLoginStarted.current) return;
-    if (!token) return;
+    if (!isAuthenticated) return;
     if (status !== 'idle') return;
 
     // Set once and never cleared, including on failure — see the historical note in git blame
     // for why clearing this on error caused a re-trigger loop that froze the page. One attempt
     // per mount; screens that need a wallet surface `error` and their own retry button.
     autoLoginStarted.current = true;
-    void login(token).catch(() => {});
-  }, [token, status, login]);
+    void login().catch(() => {});
+  }, [isAuthenticated, status, login]);
 
   const value = useMemo(
     () => ({ status, address, error, login, getSigner, logout }),

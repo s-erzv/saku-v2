@@ -1,11 +1,16 @@
 /**
  * Wallet custody and signing, on Privy.
  *
- * Replaces `lib/turnkey.ts`, which is kept alongside this for rollback. The move was forced by
- * economics rather than architecture: Turnkey's free tier allows 25 signatures a month, and a
- * single user sending a few transfers exhausts it. Privy allows 50,000. The security posture is
- * the same in the way that matters here — the private key never exists inside this application,
- * and this server can only ask for a signature, never obtain the key.
+ * Replaced `lib/turnkey.ts`, which has since been deleted — a configured but unreferenced signer
+ * is a live key for a provider nothing calls. The move was forced by economics rather than
+ * architecture: Turnkey's free tier allows 25 signatures a month, and a single user sending a few
+ * transfers exhausts it. Privy allows 50,000.
+ *
+ * **This is custodial, and the product copy says so.** The private key never exists inside this
+ * application and cannot be extracted from the provider — but the authority to use it lives here,
+ * which means Saku's server can sign for any user's wallet whenever it decides to. Calling that
+ * "non-custodial" because the bytes sit elsewhere would be a distinction that matters to nobody
+ * whose money it is.
  *
  * Two things authorize a signature, and both are needed:
  *   - `PRIVY_APP_SECRET`, which authenticates the app to Privy's API, and
@@ -13,6 +18,10 @@
  *     request. Privy holds its public half, never the private one.
  *
  * That is deliberate. A leaked app secret on its own moves no money.
+ *
+ * What decides *whether* to ask for a signature is not here: `lib/tx-policy.ts` vets the
+ * transaction, `lib/spend-limits.ts` caps the daily total, and `/api/mpc/sign` records every
+ * decision. This module only carries out one that has already been made.
  */
 
 import { PrivyClient } from '@privy-io/node';

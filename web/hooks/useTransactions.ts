@@ -46,17 +46,16 @@ export type TransactionContext =
   | { kind: 'split_bill'; title?: string };
 
 export function useTransactions(limit = 10) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [transactions, setTransactions] = useState<SakuTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
 
     setIsLoading(true);
     try {
       const res = await fetch(`/api/transactions?limit=${limit}`, {
-        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok) setTransactions(data.transactions ?? []);
@@ -65,7 +64,7 @@ export function useTransactions(limit = 10) {
     } finally {
       setIsLoading(false);
     }
-  }, [token, limit]);
+  }, [isAuthenticated, limit]);
 
   useEffect(() => {
     void refresh();

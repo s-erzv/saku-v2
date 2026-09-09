@@ -30,12 +30,13 @@ const ERC20_ABI = ['function transfer(address to, uint256 amount) returns (bool)
 /** Cached per page load — the treasury address does not change between two transfers. */
 let treasuryCache: string | null = null;
 
-export async function getTreasuryAddress(token: string | null): Promise<string | null> {
+export async function getTreasuryAddress(signedIn: boolean): Promise<string | null> {
   if (treasuryCache) return treasuryCache;
-  if (!token) return null;
+  // The route is behind a session; asking without one only produces a 401 to throw away.
+  if (!signedIn) return null;
 
   try {
-    const res = await fetch('/api/treasury', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch('/api/treasury');
     if (!res.ok) return null;
     const { treasury } = (await res.json()) as { treasury?: string };
     treasuryCache = treasury ?? null;

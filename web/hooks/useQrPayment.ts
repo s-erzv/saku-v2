@@ -36,21 +36,21 @@ export interface PaymentRequestDetails {
 }
 
 export function useCreatePaymentRequest() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
 
   const create = useCallback(
     async (amount?: string, note?: string) => {
-      if (!token) return null;
+      if (!isAuthenticated) return null;
       setCreating(true);
       setError(null);
 
       try {
         const res = await fetch('/api/qr-payment/create', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ amount: amount || undefined, note: note || undefined }),
         });
         const data = await res.json();
@@ -65,7 +65,7 @@ export function useCreatePaymentRequest() {
         setCreating(false);
       }
     },
-    [token]
+    [isAuthenticated]
   );
 
   return { creating, error, code, create, reset: () => { setCode(null); setError(null); } };
@@ -74,7 +74,7 @@ export function useCreatePaymentRequest() {
 export type PayPhase = 'idle' | 'loading' | 'paying' | 'done' | 'failed';
 
 export function usePayRequest(code: string) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { getSigner, address } = useMpcWallet();
 
   const [phase, setPhase] = useState<PayPhase>('loading');
@@ -83,11 +83,10 @@ export function usePayRequest(code: string) {
   const [paidTxHash, setPaidTxHash] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setPhase('loading');
     try {
       const res = await fetch(`/api/qr-payment/${code}`, {
-        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request not found');
@@ -97,7 +96,7 @@ export function usePayRequest(code: string) {
       setPhase('failed');
       setError(err instanceof Error ? err.message : 'Request not found');
     }
-  }, [code, token]);
+  }, [code, isAuthenticated]);
 
   const pay = useCallback(
     async (amountOverride?: string) => {
@@ -125,7 +124,7 @@ export function usePayRequest(code: string) {
           }
         }
 
-        const treasury = await getTreasuryAddress(token);
+        const treasury = await getTreasuryAddress(isAuthenticated);
 
         const tx = await usdc.transfer(details.payeeAddress, value);
         setPaidTxHash(tx.hash);
@@ -139,7 +138,7 @@ export function usePayRequest(code: string) {
         // just 404 on a transaction the node has not mined.
         const res = await fetch(`/api/qr-payment/${code}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
         });
         const data = await res.json();
@@ -155,7 +154,7 @@ export function usePayRequest(code: string) {
         return null;
       }
     },
-    [address, code, details, getSigner, token]
+    [address, code, details, getSigner, isAuthenticated]
   );
 
   return { phase, details, error, paidTxHash, load, pay };

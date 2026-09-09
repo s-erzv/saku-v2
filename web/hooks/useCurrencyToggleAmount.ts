@@ -17,8 +17,8 @@ export type { LocalCurrencyInfo };
 
 export type AmountUnit = 'usdc' | 'local';
 
-export function useCurrencyToggleAmount(token: string | null) {
-  const currency = useLocalCurrency(token);
+export function useCurrencyToggleAmount(signedIn: boolean) {
+  const currency = useLocalCurrency(signedIn);
   const [unit, setUnit] = useState<AmountUnit>('usdc');
   const [amountUsdc, setAmountUsdc] = useState('');
   const [amountLocal, setAmountLocal] = useState('');

@@ -75,17 +75,17 @@ export interface BillDetails {
 }
 
 export function useSplitBills() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [created, setCreated] = useState<BillSummary[]>([]);
   const [owed, setOwed] = useState<OwedShare[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setIsLoading(true);
     try {
-      const res = await fetch('/api/split-bill', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('/api/split-bill');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not load bills');
       setCreated(data.created ?? []);
@@ -96,7 +96,7 @@ export function useSplitBills() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     void refresh();
@@ -118,12 +118,12 @@ export function useSplitBills() {
       /** The receipt behind the total. Optional: an evenly-split bill has no items to explain. */
       breakdown?: BillBreakdown;
     }) => {
-      if (!token) return null;
+      if (!isAuthenticated) return null;
       setError(null);
       try {
         const res = await fetch('/api/split-bill', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(input),
         });
         const data = await res.json();
@@ -135,14 +135,14 @@ export function useSplitBills() {
         return null;
       }
     },
-    [token, refresh]
+    [isAuthenticated, refresh]
   );
 
   return { created, owed, isLoading, error, refresh, createBill };
 }
 
 export function useBillDetails(id: string) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { getSigner, address } = useMpcWallet();
 
   const [bill, setBill] = useState<BillDetails | null>(null);
@@ -151,11 +151,10 @@ export function useBillDetails(id: string) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setIsLoading(true);
     try {
       const res = await fetch(`/api/split-bill/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Bill not found');
@@ -166,7 +165,7 @@ export function useBillDetails(id: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [id, token]);
+  }, [id, isAuthenticated]);
 
   useEffect(() => {
     void load();
@@ -196,7 +195,7 @@ export function useBillDetails(id: string) {
         }
       }
 
-      const treasury = await getTreasuryAddress(token);
+      const treasury = await getTreasuryAddress(isAuthenticated);
 
       const tx = await usdc.transfer(bill.creatorAddress, value);
       await tx.wait();
@@ -207,7 +206,7 @@ export function useBillDetails(id: string) {
 
       const res = await fetch(`/api/split-bill/${id}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
       });
       const data = await res.json();
@@ -223,7 +222,7 @@ export function useBillDetails(id: string) {
     } finally {
       setPaying(false);
     }
-  }, [address, bill, getSigner, id, load, token]);
+  }, [address, bill, getSigner, id, load, isAuthenticated]);
 
   /**
    * Mark a share paid without moving anything through Saku — cash, another bank app.
@@ -240,7 +239,7 @@ export function useBillDetails(id: string) {
       try {
         const res = await fetch(`/api/split-bill/${id}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ method: 'external', note }),
         });
         const data = await res.json();
@@ -254,7 +253,7 @@ export function useBillDetails(id: string) {
         setPaying(false);
       }
     },
-    [bill, id, load, token]
+    [bill, id, load, isAuthenticated]
   );
 
   return { bill, isLoading, paying, error, load, payShare, settleExternally };

@@ -11,17 +11,11 @@
 
 import { NextResponse } from 'next/server';
 import { getSettler } from '@/lib/chain';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 
 export async function GET(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  try {
-    await verifyToken(sessionToken);
-  } catch {
-    return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
-  }
+  const session = await getSession(request);
+  if (!session) return unauthorized();
 
   return NextResponse.json({ treasury: getSettler().address });
 }

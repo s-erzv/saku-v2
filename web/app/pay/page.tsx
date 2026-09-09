@@ -29,13 +29,13 @@ const SCANNER_ELEMENT_ID = "saku-qr-scanner"
 
 export default function PayPage() {
   const router = useRouter()
-  const { user, token, isLoading, isAuthenticated } = useAuth()
+  const { user, isLoading, isAuthenticated } = useAuth()
   const { status } = useMpcWallet()
   const { creating, error, code, create, reset } = useCreatePaymentRequest()
 
   // The amount can be typed in USDC or in the currency of the number the user signed up with,
   // same as every other amount field in the app. What is requested is still USDC.
-  const money = useCurrencyToggleAmount(token)
+  const money = useCurrencyToggleAmount(isAuthenticated)
   const amount = money.amountUsdc
 
   const [mode, setMode] = useState<Mode>("request")

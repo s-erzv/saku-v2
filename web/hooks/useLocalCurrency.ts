@@ -25,14 +25,14 @@ export interface LocalCurrencyInfo {
   fxRate: number;
 }
 
-export function useLocalCurrency(token: string | null) {
+export function useLocalCurrency(signedIn: boolean) {
   const [currency, setCurrency] = useState<LocalCurrencyInfo | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!signedIn) return;
     let cancelled = false;
 
-    fetch('/api/offramp/quote', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('/api/offramp/quote')
       .then((res) => res.json())
       .then((data) => {
         if (cancelled || !data?.fxRate) return;
@@ -52,7 +52,7 @@ export function useLocalCurrency(token: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [signedIn]);
 
   return currency;
 }

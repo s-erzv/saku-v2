@@ -17,7 +17,7 @@ import { useTokenBalances } from "@/hooks/useTokenBalances"
 import { CONTRACTS } from "@/lib/config"
 
 export default function BalanceCardSection() {
-  const { user, wallet, token, isLoading } = useAuth()
+  const { isAuthenticated, user, wallet, isLoading } = useAuth()
   const { address } = useMpcWallet()
   const walletAddress = address ?? wallet?.address ?? null
 
@@ -32,10 +32,10 @@ export default function BalanceCardSection() {
    * USDC stays the unit the card opens in and the one every flow actually moves; this is a
    * second reading of the same number, not a second balance. Tapping switches between them.
    */
-  const localCurrency = useLocalCurrency(token)
+  const localCurrency = useLocalCurrency(isAuthenticated)
   const [showLocal, setShowLocal] = useState(false)
 
-  // USDC is the token every Saku flow moves; mBUSD only appears as off-ramp settlement output,
+  // USDC is the isAuthenticated every Saku flow moves; mBUSD only appears as off-ramp settlement output,
   // so the headline figure is USDC rather than a sum that would drift as soon as a swap lands.
   const usdc = balances.find((t) => t.address.toLowerCase() === CONTRACTS.USDC.toLowerCase())
   const balanceUsdc = Number(usdc?.formatted ?? 0)

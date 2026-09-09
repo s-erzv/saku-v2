@@ -15,7 +15,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 
 export default function ProfileCard() {
-  const { user, wallet, token, refreshUser } = useAuth()
+  const { isAuthenticated, user, wallet, refreshUser } = useAuth()
   const [isUpdating, setIsUpdating] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -24,7 +24,7 @@ export default function ProfileCard() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const handleAvatarSelect = (file: File) => {
-    if (!token) return
+    if (!isAuthenticated) return
     setUploadingAvatar(true)
 
     const reader = new FileReader()
@@ -32,7 +32,7 @@ export default function ProfileCard() {
       try {
         const res = await fetch('/api/profile/avatar', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: reader.result }),
         })
         const result = await res.json()
@@ -54,7 +54,7 @@ export default function ProfileCard() {
   }
 
   const handleUpdateProfile = async () => {
-    if (!token) return
+    if (!isAuthenticated) return
     const displayName = fullName.trim()
     if (!displayName) return toast.error("Name cannot be empty")
 
@@ -62,7 +62,7 @@ export default function ProfileCard() {
     try {
       const res = await fetch('/api/profile/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayName }),
       })
       const result = await res.json()

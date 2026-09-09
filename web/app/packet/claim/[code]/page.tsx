@@ -81,9 +81,9 @@ function CountUp({ to, decimals = 2 }: { to: number; decimals?: number }) {
 export default function ClaimPacketPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params)
   const router = useRouter()
-  const { user, token, isLoading, isAuthenticated } = useAuth()
+  const { user, isLoading, isAuthenticated } = useAuth()
   const { details, isLoading: loadingPacket, claiming, error, claimed, load, claim } = useClaimPacket(code)
-  const currency = useLocalCurrency(token)
+  const currency = useLocalCurrency(isAuthenticated)
 
   const [opened, setOpened] = useState(false)
   const [celebrating, setCelebrating] = useState(false)

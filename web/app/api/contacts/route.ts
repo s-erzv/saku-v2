@@ -11,19 +11,11 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { hashPhone, InvalidPhoneNumberError } from '@/lib/phone';
 import { describeDbError } from '@/lib/db-errors';
 
-async function requireSession(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return null;
-  try {
-    return await verifyToken(sessionToken);
-  } catch {
-    return null;
-  }
-}
+const requireSession = getSession;
 
 export async function GET(request: Request) {
   const session = await requireSession(request);

@@ -7,7 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { createInvoice } from '@/lib/xendit';
 import { getUsdcAddress } from '@/lib/chain';
 import {
@@ -16,9 +16,9 @@ import {
   quoteTopup,
   usdcToTokenBaseUnits,
 } from '@/lib/topup';
-import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 import { describeDbError } from '@/lib/db-errors';
-import { extractClientIP } from '@/lib/auth-middleware';
+import { clientKey } from '@/lib/request-meta';
 
 /** `SAKU-<epoch>-<random>`: unique per attempt, and a reused external id would collide. */
 function generateOrderId(): string {
@@ -26,18 +26,10 @@ function generateOrderId(): string {
 }
 
 export async function POST(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await getSession(request);
+  if (!session) return unauthorized();
 
-  let session;
-  try {
-    session = await verifyToken(sessionToken);
-  } catch {
-    return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
-  }
-
-  const clientIP = extractClientIP(request) || 'unknown';
-  if (!rateLimiter.check(`topup:${clientIP}`, RATE_LIMITS.IP_BASED).allowed) {
+  if (!(await checkRateLimit(clientKey(request, 'topup'), RATE_LIMITS.IP_BASED)).allowed) {
     return NextResponse.json({ error: 'Too many requests. Try again shortly.' }, { status: 429 });
   }
 

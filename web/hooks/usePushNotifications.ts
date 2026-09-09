@@ -35,7 +35,7 @@ function urlBase64ToBytes(base64: string): ArrayBuffer {
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
 
 export function usePushNotifications() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [status, setStatus] = useState<PushStatus>('checking');
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +76,7 @@ export function usePushNotifications() {
   }, [supported]);
 
   const enable = useCallback(async () => {
-    if (!supported || !token) return;
+    if (!supported || !isAuthenticated) return;
 
     setIsBusy(true);
     setError(null);
@@ -99,7 +99,7 @@ export function usePushNotifications() {
 
       const res = await fetch('/api/push/subscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(subscription.toJSON()),
       });
 
@@ -120,10 +120,10 @@ export function usePushNotifications() {
     } finally {
       setIsBusy(false);
     }
-  }, [supported, token]);
+  }, [supported, isAuthenticated]);
 
   const disable = useCallback(async () => {
-    if (!supported || !token) return;
+    if (!supported || !isAuthenticated) return;
 
     setIsBusy(true);
     setError(null);
@@ -133,7 +133,7 @@ export function usePushNotifications() {
 
       await fetch('/api/push/unsubscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint: subscription?.endpoint ?? null }),
       });
 
@@ -145,7 +145,7 @@ export function usePushNotifications() {
     } finally {
       setIsBusy(false);
     }
-  }, [supported, token]);
+  }, [supported, isAuthenticated]);
 
   return { status, isBusy, error, enable, disable };
 }

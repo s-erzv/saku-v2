@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify:tx-policy": "./scripts/verify-tx-policy.sh"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.2.2",

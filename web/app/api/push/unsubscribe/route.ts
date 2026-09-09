@@ -7,18 +7,11 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 
 export async function POST(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  let session;
-  try {
-    session = await verifyToken(sessionToken);
-  } catch {
-    return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
-  }
+  const session = await getSession(request);
+  if (!session) return unauthorized();
 
   try {
     const body = await request.json().catch(() => ({}));

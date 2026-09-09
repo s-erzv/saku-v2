@@ -22,7 +22,7 @@ export default function TopupCallbackPage({
 }) {
   const { orderId } = use(params)
   const router = useRouter()
-  const { token, isLoading, isAuthenticated, refreshUser } = useAuth()
+  const { isLoading, isAuthenticated, refreshUser } = useAuth()
   const { phase, payoutTxHash, error, waitForSettlement } = useTopup()
   const [started, setStarted] = useState(false)
 
@@ -31,10 +31,10 @@ export default function TopupCallbackPage({
   }, [isLoading, isAuthenticated, router])
 
   useEffect(() => {
-    if (!token || started) return
+    if (!isAuthenticated || started) return
     setStarted(true)
     void waitForSettlement(orderId)
-  }, [token, started, orderId, waitForSettlement])
+  }, [isAuthenticated, started, orderId, waitForSettlement])
 
   useEffect(() => {
     if (phase === "done") void refreshUser()

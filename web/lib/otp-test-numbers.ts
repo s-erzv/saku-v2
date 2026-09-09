@@ -22,7 +22,7 @@
 
 import { OTP_LENGTH } from '@/lib/otp';
 
-/** `<international digits>:<code>`, comma-separated. Example: `60123456789:1234,6591234567:5678`. */
+/** `<international digits>:<code>`, comma-separated. Example: `60123456789:123456,6591234567:567890`. */
 export const OTP_TEST_NUMBERS_ENV = 'OTP_TEST_NUMBERS';
 
 /**

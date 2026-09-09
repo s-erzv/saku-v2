@@ -13,7 +13,7 @@
 import { NextResponse } from 'next/server';
 import { parseUnits } from 'ethers';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { CHAIN_ID, USDC_DECIMALS, getUsdcAddress } from '@/lib/chain';
 import { generatePacketCode } from '@/lib/packet';
 import { describeDbError } from '@/lib/db-errors';
@@ -22,15 +22,8 @@ import { describeDbError } from '@/lib/db-errors';
 const EXPIRY_MINUTES = 60;
 
 export async function POST(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  let session;
-  try {
-    session = await verifyToken(sessionToken);
-  } catch {
-    return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
-  }
+  const session = await getSession(request);
+  if (!session) return unauthorized();
 
   try {
     const body = await request.json();

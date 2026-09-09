@@ -89,7 +89,7 @@ function newParticipant(): Participant {
 function SplitBillView() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, token, isLoading, isAuthenticated } = useAuth()
+  const { user, isLoading, isAuthenticated } = useAuth()
   const { created, owed, isLoading: loadingBills, error, createBill } = useSplitBills()
 
   const requestedTab = searchParams.get("tab") as Tab | null
@@ -100,7 +100,7 @@ function SplitBillView() {
   const [busy, setBusy] = useState(false)
   const [title, setTitle] = useState("")
   const [mode, setMode] = useState<"even" | "items">("even")
-  const totalField = useCurrencyToggleAmount(token)
+  const totalField = useCurrencyToggleAmount(isAuthenticated)
   const [countryCode, setCountryCode] = useRecipientCountryCode()
   const [participants, setParticipants] = useState<Participant[]>([newParticipant()])
   const [items, setItems] = useState<BillItem[]>([])
@@ -189,7 +189,7 @@ function SplitBillView() {
       try {
         const res = await fetch("/api/ocr", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: reader.result }),
         })
         const data = (await res.json()) as ScannedReceipt & { success: boolean; error?: string }
@@ -226,7 +226,7 @@ function SplitBillView() {
           if (localTotal > 0) {
             const rate =
               currency?.fxRate ??
-              (await fetch("/api/offramp/quote", { headers: { Authorization: `Bearer ${token}` } })
+              (await fetch("/api/offramp/quote")
                 .then((res) => res.json())
                 .then((quote) => Number(quote?.fxRate))
                 .catch(() => NaN))

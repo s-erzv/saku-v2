@@ -57,7 +57,7 @@ type Step = "form" | "review"
 
 export default function OfframpPage() {
   const router = useRouter()
-  const { user, wallet, token, isLoading, isAuthenticated } = useAuth()
+  const { user, wallet, isLoading, isAuthenticated } = useAuth()
   const { address, status } = useMpcWallet()
   const { phase, error, lockTxHash, result, recipientHash, resolveRecipient, send, requestRefund } = useOfframp()
 
@@ -107,19 +107,19 @@ export default function OfframpPage() {
   // Fetched once, lazily — most transfers never touch the bank rail, so there's no reason to
   // pull Xendit's 150+-entry bank list on every visit to this screen.
   useEffect(() => {
-    if (rail !== "bank" || banks.length > 0 || loadingBanks || !token) return
+    if (rail !== "bank" || banks.length > 0 || loadingBanks || !isAuthenticated) return
     setLoadingBanks(true)
-    fetch("/api/offramp/banks", { headers: { Authorization: `Bearer ${token}` } })
+    fetch("/api/offramp/banks")
       .then((res) => res.json())
       .then((data) => { if (Array.isArray(data.banks)) setBanks(data.banks) })
       .catch(() => {})
       .finally(() => setLoadingBanks(false))
-  }, [rail, banks.length, loadingBanks, token])
+  }, [rail, banks.length, loadingBanks, isAuthenticated])
 
   // Re-quote as the amount changes: the on-chain half comes from the live pool, so the number
   // moves with real liquidity rather than a fixed formula.
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
     const amountUsdc = Number(amount)
     const query = Number.isFinite(amountUsdc) && amountUsdc > 0 ? `?amountUsdc=${amountUsdc}` : ""
 
@@ -127,7 +127,6 @@ export default function OfframpPage() {
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/offramp/quote${query}`, {
-          headers: { Authorization: `Bearer ${token}` },
         })
         const data = await res.json()
         if (cancelled) return
@@ -147,7 +146,7 @@ export default function OfframpPage() {
     }, 350)
 
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [amount, token])
+  }, [amount, isAuthenticated])
 
   const amountUsdc = Number(amount)
   const minUsdc = quote?.minUsdc ?? 1

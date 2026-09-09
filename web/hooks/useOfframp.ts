@@ -31,7 +31,7 @@ const ERC20_ABI = [
 ];
 
 const ESCROW_ABI = [
-  'function lockForOfframp(uint256 amount, address token, bytes32 recipientPhoneHash, uint256 rateExpiry) returns (bytes32)',
+  'function lockForOfframp(uint256 amount, address isAuthenticated, bytes32 recipientPhoneHash, uint256 rateExpiry) returns (bytes32)',
 ];
 
 /** Matches `RATE_EXPIRY_SECONDS` in lib/escrow.ts — the contract enforces the 30-120s bounds. */
@@ -62,7 +62,7 @@ export interface OfframpResult {
 }
 
 export function useOfframp() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { getSigner, address } = useMpcWallet();
 
   const [phase, setPhase] = useState<OfframpPhase>('idle');
@@ -109,7 +109,7 @@ export function useOfframp() {
       try {
         const res = await fetch('/api/offramp/recipient', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ rail, ...destination }),
         });
         const data = await res.json();
@@ -128,7 +128,7 @@ export function useOfframp() {
         return null;
       }
     },
-    [token]
+    [isAuthenticated]
   );
 
   /**
@@ -190,7 +190,7 @@ export function useOfframp() {
         const destination = recipientDestinationRef.current;
         const res = await fetch('/api/offramp/lock', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             txHash: lockTx.hash,
             rail,
@@ -229,7 +229,6 @@ export function useOfframp() {
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 
           const statusRes = await fetch(`/api/offramp/${requestId}`, {
-            headers: { Authorization: `Bearer ${token}` },
           });
           if (!statusRes.ok) continue; // transient — try again next tick
           const statusData = await statusRes.json();
@@ -290,7 +289,7 @@ export function useOfframp() {
         return null;
       }
     },
-    [address, getSigner, token]
+    [address, getSigner, isAuthenticated]
   );
 
   /** Claim back a lock that never settled. Only works once the rate lock has expired. */
@@ -300,7 +299,6 @@ export function useOfframp() {
       try {
         const res = await fetch(`/api/offramp/${requestId}`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Refund failed');
@@ -312,7 +310,7 @@ export function useOfframp() {
         return null;
       }
     },
-    [token]
+    [isAuthenticated]
   );
 
   return { phase, error, lockTxHash, result, recipientHash, resolveRecipient, send, requestRefund, reset };

@@ -41,7 +41,7 @@ interface QrisInfo {
 
 export default function PayQrisPage() {
   const router = useRouter()
-  const { user, wallet, token, isLoading, isAuthenticated } = useAuth()
+  const { user, wallet, isLoading, isAuthenticated } = useAuth()
   const { address, status } = useMpcWallet()
   const { phase, error: sendError, lockTxHash, result, send } = useOfframp()
 
@@ -64,7 +64,7 @@ export default function PayQrisPage() {
   }, [phase, refresh])
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
 
     const payload = (() => {
       try {
@@ -83,7 +83,7 @@ export default function PayQrisPage() {
       try {
         const res = await fetch("/api/qris/parse", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ payload }),
         })
         const data = await res.json()
@@ -93,7 +93,7 @@ export default function PayQrisPage() {
         setLoadError(err instanceof Error ? err.message : "Could not read that code")
       }
     })()
-  }, [token])
+  }, [isAuthenticated])
 
   const formatFiat = (value: number) =>
     info

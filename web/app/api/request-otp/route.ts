@@ -17,8 +17,9 @@ import {
   OTP_RATE_WINDOW_MS,
 } from '@/lib/otp';
 import { testOtpCodeFor } from '@/lib/otp-test-numbers';
-import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
-import { extractClientIP } from '@/lib/auth-middleware';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
+import { clientKey } from '@/lib/request-meta';
+import { logAuthEvent } from '@/lib/audit-log';
 
 /** One message for every rejection an attacker could learn something from. */
 const GENERIC_ERROR = 'Could not send your verification code. Please try again shortly.';
@@ -38,11 +39,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 400 });
   }
 
-  // Best-effort first line only. `x-forwarded-for` is client-supplied and this counter lives in
-  // one process's memory, so it resets on cold start and is not shared between instances. The
-  // limit that actually holds is the per-phone one below, which is in the database.
-  const clientIP = extractClientIP(request) || 'unknown';
-  if (!rateLimiter.check(`ip:${clientIP}`, RATE_LIMITS.IP_BASED).allowed) {
+  // Both counters are now in the database and both hold. The IP bucket slows one machine
+  // sweeping many numbers — keyed on an address the platform vouches for, not on the
+  // client-writable first hop of `x-forwarded-for` it used to trust. The per-phone limit below
+  // is what protects a single number.
+  const ipLimit = await checkRateLimit(clientKey(request, 'request-otp'), RATE_LIMITS.IP_BASED);
+  if (!ipLimit.allowed) {
+    await logAuthEvent(request, { type: 'otp_request_rate_limited', phoneHash });
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 429 });
   }
 
@@ -58,6 +61,7 @@ export async function POST(request: Request) {
 
     if (countError) throw countError;
     if ((count ?? 0) >= OTP_MAX_PER_WINDOW) {
+      await logAuthEvent(request, { type: 'otp_request_rate_limited', phoneHash, metadata: { scope: 'per-phone' } });
       return NextResponse.json(
         { error: 'Too many code requests. Please wait 5 minutes.', code: 'RATE_LIMIT_EXCEEDED' },
         { status: 429 }
@@ -93,6 +97,7 @@ export async function POST(request: Request) {
 
     if (testCode) {
       console.warn(`[otp] test number ${normalized} — no WhatsApp message sent`);
+      await logAuthEvent(request, { type: 'otp_requested', phoneHash, metadata: { channel: 'test-number' } });
       return NextResponse.json({ success: true, message: 'Verification code sent' });
     }
 
@@ -101,6 +106,7 @@ export async function POST(request: Request) {
       // Do not leave a live code behind for a message that never arrived — it would burn one of
       // the user's three attempts in the window and stay guessable for five minutes.
       await supabase.from('otp_challenges').delete().eq('id', challenge.id);
+      await logAuthEvent(request, { type: 'otp_send_failed', phoneHash, metadata: { outcome } });
 
       // "This number has no WhatsApp" is safe to say and is the difference between a user
       // retrying a typo and a user concluding the app is broken. It leaks nothing about Saku —
@@ -114,6 +120,8 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ error: GENERIC_ERROR }, { status: 502 });
     }
+
+    await logAuthEvent(request, { type: 'otp_requested', phoneHash, metadata: { channel: 'whatsapp' } });
 
     // Deliberately says nothing about whether this number is already registered.
     return NextResponse.json({ success: true, message: 'Verification code sent' });

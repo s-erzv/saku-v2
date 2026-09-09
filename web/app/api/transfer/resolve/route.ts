@@ -12,25 +12,17 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { hashPhone, InvalidPhoneNumberError } from '@/lib/phone';
 import { CHAIN_ID } from '@/lib/chain';
-import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
-import { extractClientIP } from '@/lib/auth-middleware';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
+import { clientKey } from '@/lib/request-meta';
 
 export async function POST(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await getSession(request);
+  if (!session) return unauthorized();
 
-  let session;
-  try {
-    session = await verifyToken(sessionToken);
-  } catch {
-    return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
-  }
-
-  const clientIP = extractClientIP(request) || 'unknown';
-  if (!rateLimiter.check(`resolve:${clientIP}`, RATE_LIMITS.IP_BASED).allowed) {
+  if (!(await checkRateLimit(`resolve:${session.userId}`, RATE_LIMITS.RESOLVE)).allowed) {
     return NextResponse.json({ error: 'Too many lookups. Try again shortly.' }, { status: 429 });
   }
 

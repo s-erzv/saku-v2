@@ -14,7 +14,7 @@
 import { NextResponse } from 'next/server';
 import { Interface, formatUnits, id as keccakId, parseUnits } from 'ethers';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { transferFee } from '@/lib/fees';
 import { recordTransaction } from '@/lib/record-transaction';
 import { sendPushNotification } from '@/lib/push';
@@ -67,15 +67,7 @@ async function closeBillIfFullyPaid(billId: string): Promise<boolean> {
   return settled;
 }
 
-async function requireSession(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return null;
-  try {
-    return await verifyToken(sessionToken);
-  } catch {
-    return null;
-  }
-}
+const requireSession = getSession;
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession(request);

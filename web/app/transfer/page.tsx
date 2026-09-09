@@ -31,7 +31,7 @@ type Step = "receiver" | "amount" | "review"
 
 export default function TransferPage() {
   const router = useRouter()
-  const { user, wallet, token, isLoading, isAuthenticated } = useAuth()
+  const { user, wallet, isLoading, isAuthenticated } = useAuth()
   const { address, status } = useMpcWallet()
   const { phase, recipient, txHash, error, resolveRecipient, send, reset } = useTransfer()
 
@@ -42,7 +42,7 @@ export default function TransferPage() {
   const [destination, setDestination] = useState<"saku" | "ewallet">("saku")
   const [countryCode, setCountryCode] = useRecipientCountryCode()
   const [phone, setPhone] = useState("")
-  const amountField = useCurrencyToggleAmount(token)
+  const amountField = useCurrencyToggleAmount(isAuthenticated)
   const amount = amountField.amountUsdc
   const [showReceipt, setShowReceipt] = useState(false)
 

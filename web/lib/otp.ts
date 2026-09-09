@@ -11,23 +11,24 @@
  *    comparable — so it is stored as an HMAC.
  *  - Comparison was `===` on the decrypted string, which leaks position-of-first-difference
  *    through timing. Now `timingSafeEqual`.
- *  - There was no working server-side attempt cap, so a 4-digit code could be swept. The
- *    length is unchanged, but {@link OTP_MAX_ATTEMPTS} is now enforced in the database.
+ *  - There was no working server-side attempt cap, so a short code could be swept. {@link
+ *    OTP_MAX_ATTEMPTS} is now enforced in the database, and the code itself is longer — see
+ *    {@link OTP_LENGTH}.
  */
 
 import { createHmac, randomInt, timingSafeEqual } from 'crypto';
 
-export const OTP_LENGTH = 4;
+import { OTP_LENGTH } from '@/lib/otp-shape';
+
+export { OTP_LENGTH };
 export const OTP_TTL_MS = 5 * 60 * 1000;
 
 /**
  * Attempts allowed against a single challenge before it is dead.
  *
- * The code is 4 digits — 10,000 possibilities — to match the four-box input the app has always
- * shown. That is short, so this cap is what carries the security: 3 guesses per code and
- * {@link OTP_MAX_PER_WINDOW} codes per window bounds an attacker to 9 guesses per 5 minutes
- * against a number they do not control. Widening either number, or the code's length, changes
- * that arithmetic directly.
+ * With {@link OTP_LENGTH} at six digits this cap and {@link OTP_MAX_PER_WINDOW} bound an attacker
+ * to 9 guesses per 5 minutes against a space of 1,000,000, for a number they do not control.
+ * Widening either number, or shortening the code, changes that arithmetic directly.
  */
 export const OTP_MAX_ATTEMPTS = 3;
 

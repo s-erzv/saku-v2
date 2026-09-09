@@ -3,14 +3,14 @@
 /**
  * Top up: choose an amount of USDC, pay its price through Xendit.
  *
- * The user picks the token amount, not the fiat amount — they are buying USDC, and the fiat
+ * The user picks the isAuthenticated amount, not the fiat amount — they are buying USDC, and the fiat
  * figure is its price. Pricing the other way round is what produced amounts like "6.25 USDC"
  * with no way to ask for a round 10.
  *
  * The price is quoted in the user's own currency at a live rate, both resolved server-side from
  * their country (PRD Section 6). Nothing here is hardcoded to Indonesia.
  *
- * What the screen states plainly: the payment is real, the asset is a testnet token paid out of
+ * What the screen states plainly: the payment is real, the asset is a testnet isAuthenticated paid out of
  * the admin treasury. A demo that blurs those two is how people end up believing they bought
  * something.
  */
@@ -57,7 +57,7 @@ const RATE_REFRESH_MS = 60_000
 
 export default function TopupPage() {
   const router = useRouter()
-  const { user, wallet, token, isLoading, isAuthenticated, refreshUser } = useAuth()
+  const { user, wallet, isLoading, isAuthenticated, refreshUser } = useAuth()
   const { address } = useMpcWallet()
   const { phase, payoutTxHash, error, startTopup, reset } = useTopup()
 
@@ -71,12 +71,12 @@ export default function TopupPage() {
   const [showReceipt, setShowReceipt] = useState(false)
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
     let cancelled = false
 
     const load = async () => {
       try {
-        const res = await fetch("/api/topup/quote", { headers: { Authorization: `Bearer ${token}` } })
+        const res = await fetch("/api/topup/quote")
         const data = await res.json()
         if (cancelled || !res.ok) return
 
@@ -99,7 +99,7 @@ export default function TopupPage() {
     const timer = setInterval(load, RATE_REFRESH_MS)
 
     return () => { cancelled = true; clearInterval(timer) }
-  }, [token])
+  }, [isAuthenticated])
 
   const formatPrice = (value: number) =>
     quote
@@ -331,14 +331,14 @@ export default function TopupPage() {
               Only when money genuinely moves. On a Xendit sandbox account nothing is charged, so
               this is noise about a transaction that is not happening and the screen stays clean.
               The moment a production key is configured it returns by itself — taking real money
-              for a token that only exists on a testnet is not something to leave unsaid.
+              for a isAuthenticated that only exists on a testnet is not something to leave unsaid.
             */}
             {quote?.realPayment && (
               <div className="p-4 rounded-2xl bg-black/[0.03] border border-black/5">
                 <p className="text-[11px] leading-relaxed text-black/55">
                   <span className="font-bold text-black/75">Heads up:</span> the payment is processed
                   by Xendit and is real. What arrives in your wallet is USDC on BNB Smart Chain
-                  Testnet — a test token, not a real-world asset.
+                  Testnet — a test isAuthenticated, not a real-world asset.
                 </p>
               </div>
             )}

@@ -13,18 +13,17 @@ export interface SakuNotification {
 }
 
 export function useNotifications(limit = 30) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<SakuNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
 
     setIsLoading(true);
     try {
       const res = await fetch(`/api/notifications?limit=${limit}`, {
-        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok) {
@@ -36,7 +35,7 @@ export function useNotifications(limit = 30) {
     } finally {
       setIsLoading(false);
     }
-  }, [token, limit]);
+  }, [isAuthenticated, limit]);
 
   useEffect(() => {
     void refresh();
@@ -45,7 +44,7 @@ export function useNotifications(limit = 30) {
   /** Optimistic: flips locally first so the badge and the row update immediately, then confirms. */
   const markAsRead = useCallback(
     async (id?: string) => {
-      if (!token) return;
+      if (!isAuthenticated) return;
 
       setNotifications((prev) =>
         prev.map((n) => (!id || n.id === id ? { ...n, is_read: true } : n))
@@ -55,7 +54,7 @@ export function useNotifications(limit = 30) {
       try {
         await fetch('/api/notifications/mark-read', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(id ? { id } : {}),
         });
       } catch {
@@ -63,7 +62,7 @@ export function useNotifications(limit = 30) {
         // for a read-receipt.
       }
     },
-    [token]
+    [isAuthenticated]
   );
 
   return { notifications, unreadCount, isLoading, refresh, markAsRead };

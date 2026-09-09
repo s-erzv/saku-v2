@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { formatUnits } from 'ethers';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { CHAIN_ID, USDC_DECIMALS, getSettler, getUsdcAddress, payoutUsdc } from '@/lib/chain';
 import type { SplitMode } from '@/lib/packet';
 import { describeDbError } from '@/lib/db-errors';
@@ -30,15 +30,7 @@ interface PacketRow {
   expires_at: string | null;
 }
 
-async function requireSession(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return null;
-  try {
-    return await verifyToken(sessionToken);
-  } catch {
-    return null;
-  }
-}
+const requireSession = getSession;
 
 async function loadPacket(code: string): Promise<PacketRow | null> {
   const supabase = getSupabaseAdmin();

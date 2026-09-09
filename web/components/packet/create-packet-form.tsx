@@ -45,13 +45,13 @@ const EXPIRY_OPTIONS: { hours: number | null; label: string }[] = [
 
 export default function CreatePacketForm({ onCreated }: { onCreated?: () => void }) {
   const router = useRouter()
-  const { user, wallet, token, isLoading, isAuthenticated } = useAuth()
+  const { user, wallet, isLoading, isAuthenticated } = useAuth()
   const { address, status } = useMpcWallet()
   const { phase, error, packet, create, reset, clearError } = useCreatePacket()
 
   // The amount can be typed in USDC or in the currency of the number the user signed up with —
   // "50.000" is how someone in Indonesia thinks about a packet, not "3.07".
-  const money = useCurrencyToggleAmount(token)
+  const money = useCurrencyToggleAmount(isAuthenticated)
   const amount = money.amountUsdc
 
   const [slots, setSlots] = useState("1")

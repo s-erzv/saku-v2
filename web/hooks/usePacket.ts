@@ -55,7 +55,7 @@ export interface PacketDetails {
 }
 
 export function useCreatePacket() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { getSigner, address } = useMpcWallet();
 
   const [phase, setPhase] = useState<PacketPhase>('idle');
@@ -118,7 +118,6 @@ export function useCreatePacket() {
         // money is being sent, so it should not be something a stale bundle can get wrong.
         setPhase('funding');
         const infoRes = await fetch('/api/treasury', {
-          headers: { Authorization: `Bearer ${token}` },
         });
         const info = await infoRes.json();
         if (!infoRes.ok) throw new Error(info.error || 'Could not start the packet');
@@ -136,7 +135,7 @@ export function useCreatePacket() {
         setPhase('creating');
         const res = await fetch('/api/packet/create', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             txHash: tx.hash,
             feeTxHash,
@@ -168,14 +167,14 @@ export function useCreatePacket() {
         return null;
       }
     },
-    [address, getSigner, token]
+    [address, getSigner, isAuthenticated]
   );
 
   return { phase, error, packet, create, reset, clearError };
 }
 
 export function useClaimPacket(code: string) {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const [details, setDetails] = useState<PacketDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -184,11 +183,10 @@ export function useClaimPacket(code: string) {
   const [claimed, setClaimed] = useState<{ amount: string; txHash?: string } | null>(null);
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setIsLoading(true);
     try {
       const res = await fetch(`/api/packet/${code}`, {
-        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Packet not found');
@@ -199,16 +197,15 @@ export function useClaimPacket(code: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [code, token]);
+  }, [code, isAuthenticated]);
 
   const claim = useCallback(async () => {
-    if (!token) return null;
+    if (!isAuthenticated) return null;
     setClaiming(true);
     setError(null);
     try {
       const res = await fetch(`/api/packet/${code}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not claim');
@@ -224,7 +221,7 @@ export function useClaimPacket(code: string) {
     } finally {
       setClaiming(false);
     }
-  }, [code, token, load]);
+  }, [code, isAuthenticated, load]);
 
   return { details, isLoading, claiming, error, claimed, load, claim };
 }
@@ -282,15 +279,15 @@ export interface MyClaim {
  * creator's whole history to do it.
  */
 export function useInvitedPackets() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [packets, setPackets] = useState<InvitedPacket[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setIsLoading(true);
     try {
-      const res = await fetch('/api/packet/invited', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('/api/packet/invited');
       const data = await res.json();
       if (res.ok) setPackets(data.packets ?? []);
     } catch {
@@ -298,7 +295,7 @@ export function useInvitedPackets() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     void refresh();
@@ -309,16 +306,16 @@ export function useInvitedPackets() {
 
 /** Packets this user sent, and packets they have opened. */
 export function useMyPackets() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [created, setCreated] = useState<MyPacket[]>([]);
   const [claimed, setClaimed] = useState<MyClaim[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
     setIsLoading(true);
     try {
-      const res = await fetch('/api/packet/mine', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('/api/packet/mine');
       const data = await res.json();
       if (res.ok) {
         setCreated(data.created ?? []);
@@ -329,7 +326,7 @@ export function useMyPackets() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     void refresh();

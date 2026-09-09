@@ -21,6 +21,8 @@ export interface Contact {
   phone?: string;
 }
 
+// Kept in step with `SCOPED_KEYS` in `lib/recent-recipients.ts`, which is what clears it on
+// sign-out. Changing this string without changing that list leaves the numbers on the device.
 const LOCAL_NUMBERS_KEY = 'saku_contact_numbers';
 
 /**
@@ -50,18 +52,18 @@ function rememberNumber(scope: string | null | undefined, phoneHash: string, pho
 }
 
 export function useContacts() {
-  const { token, user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const scope = user?.phone_hash;
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
+    if (!isAuthenticated) return;
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/contacts', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('/api/contacts');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not load contacts');
 
@@ -75,7 +77,7 @@ export function useContacts() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, scope]);
+  }, [isAuthenticated, scope]);
 
   useEffect(() => {
     void refresh();
@@ -83,13 +85,13 @@ export function useContacts() {
 
   const addContact = useCallback(
     async (label: string, phone: string, countryCode: string) => {
-      if (!token) return null;
+      if (!isAuthenticated) return null;
       setError(null);
 
       try {
         const res = await fetch('/api/contacts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ label, phone, countryCode }),
         });
         const data = await res.json();
@@ -104,23 +106,22 @@ export function useContacts() {
         return null;
       }
     },
-    [token, scope, refresh]
+    [isAuthenticated, scope, refresh]
   );
 
   const removeContact = useCallback(
     async (id: string) => {
-      if (!token) return;
+      if (!isAuthenticated) return;
       try {
         await fetch(`/api/contacts?id=${encodeURIComponent(id)}`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
         });
         await refresh();
       } catch {
         setError('Could not delete contact');
       }
     },
-    [token, refresh]
+    [isAuthenticated, refresh]
   );
 
   return { contacts, isLoading, error, refresh, addContact, removeContact };

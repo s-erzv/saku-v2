@@ -232,3 +232,25 @@
 .swiper-pagination-bullet-active {
   background: #000 !important;
 }
+/*
+  Wrong-code feedback on the verification screen. A toast alone is easy to miss on a phone —
+  it appears above the thumb, away from where the eye already is, which is the code row.
+  Nudging the row itself puts the failure where the person is looking.
+*/
+@keyframes code-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+.animate-code-shake {
+  animation: code-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-code-shake {
+    animation: none;
+  }
+}

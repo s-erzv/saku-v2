@@ -1,25 +1,22 @@
 /**
- * The current user and their wallet, resolved from the session token.
+ * The current user and their wallet, resolved from the session cookie.
  *
  * The browser cannot read `users` or `wallets` directly — both are RLS-on with no permissive
- * policy, and the anon key is deliberately powerless. So identity lookups come through here,
- * where the session token is actually verified.
+ * policy, and the anon key is deliberately powerless. So identity lookups come through here.
+ *
+ * This is also where a session is renewed. Every screen calls it on load, so an active user's
+ * cookie slides forward and they are never signed out mid-use, while a token copied off a device
+ * that then goes quiet dies inside a day. See `lib/session.ts`.
  */
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized, setSessionCookie, shouldRenew } from '@/lib/session';
+import { generateToken } from '@/lib/jwt';
 
 export async function GET(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  let session;
-  try {
-    session = await verifyToken(sessionToken);
-  } catch {
-    return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
-  }
+  const session = await getSession(request);
+  if (!session) return unauthorized();
 
   try {
     const supabase = getSupabaseAdmin();
@@ -31,9 +28,9 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     if (error) throw error;
-    // The token verified, but its subject is gone — a deleted account, or a token minted
-    // against a database that has since been replaced. Treat it as logged out.
-    if (!user) return NextResponse.json({ error: 'User no longer exists' }, { status: 401 });
+    // `getSession` already refuses a token whose subject is gone, so reaching this is a race
+    // with a deletion rather than a stale token. Same answer either way: signed out.
+    if (!user) return unauthorized();
 
     const { data: wallet } = await supabase
       .from('wallets')
@@ -42,7 +39,7 @@ export async function GET(request: Request) {
       .eq('chain_id', Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 97))
       .maybeSingle();
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       user,
       wallet: wallet ?? null,
       // A wallet with one factor is one cleared browser away from being unrecoverable, so the
@@ -50,6 +47,17 @@ export async function GET(request: Request) {
       needsWalletSetup: !wallet,
       needsRecoveryFactor: !wallet || wallet.factors_enrolled < 2,
     });
+
+    if (shouldRenew(session)) {
+      const token = await generateToken({
+        phoneHash: session.phoneHash,
+        userId: session.userId,
+        version: session.version,
+      });
+      return setSessionCookie(response, token);
+    }
+
+    return response;
   } catch {
     return NextResponse.json({ error: 'Failed to load account' }, { status: 500 });
   }
