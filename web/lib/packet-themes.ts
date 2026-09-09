@@ -1,4 +1,78 @@
-import { Baby, Cake, Coins, Crown, Gift, GraduationCap, Heart, PartyPopper, Sparkles, Star, Waves } from "lucide-react"
+/**
+ * Packet styles.
+ *
+ * A theme is pure data — colours, an icon, and a background motif key. `PacketEnvelope` draws
+ * everything from it in CSS and inline SVG, so adding a style is adding an entry here and
+ * nothing else: no image assets to commission, and every style gets the flap, the seal, the
+ * gloss and the open animation for free.
+ *
+ * `pattern` exists because twenty gradients start to look like one gradient. It selects the
+ * motif tiled behind the content, which is what actually makes two red envelopes read as
+ * different objects rather than two shades of the same one.
+ */
+
+import {
+  Anchor,
+  Baby,
+  Bird,
+  Cake,
+  Candy,
+  Cherry,
+  Citrus,
+  Cloud,
+  Coffee,
+  Coins,
+  Crown,
+  Diamond,
+  Feather,
+  Flame,
+  Flower2,
+  Gem,
+  Gift,
+  GraduationCap,
+  Handshake,
+  Heart,
+  Leaf,
+  Moon,
+  Mountain,
+  Music,
+  Palmtree,
+  PartyPopper,
+  Rocket,
+  Shell,
+  Snowflake,
+  Sparkles,
+  Star,
+  Sun,
+  Sunrise,
+  TreePine,
+  Trophy,
+  Waves,
+  Wheat,
+  Zap,
+  type LucideIcon,
+} from "lucide-react"
+
+/** Motif tiled behind the envelope's content. See `PacketEnvelope`'s `PATTERNS`. */
+export type PacketPattern =
+  | "plain"
+  | "dots"
+  | "stripes"
+  | "grid"
+  | "stars"
+  | "confetti"
+  | "waves"
+  | "batik"
+  | "floral"
+  | "chevron"
+  | "scallop"
+  | "clouds"
+  | "bamboo"
+  | "coins"
+  | "hearts"
+  | "diamonds"
+  | "weave"
+  | "sparks"
 
 export interface PacketTheme {
   id: string
@@ -12,26 +86,13 @@ export interface PacketTheme {
     envelopeFlap: string
     seal: string
   }
-  icon: any
-  image?: string
+  icon: LucideIcon
+  pattern: PacketPattern
+  /** Some stocks are pale enough that white type on them is unreadable. */
+  inkOnLight?: boolean
 }
 
 export const PACKET_THEMES: PacketTheme[] = [
-  {
-    id: "blue",
-    name: "Blue Packet",
-    description: "Classic style",
-    colors: {
-      primary: "#1e88e5",
-      secondary: "#90caf9",
-      accent: "#0d47a1",
-      envelopeBg: "linear-gradient(180deg, #42a5f5 0%, #1e88e5 50%, #1565c0 100%)",
-      envelopeFlap: "linear-gradient(180deg, #64b5f6 0%, #42a5f5 100%)",
-      seal: "#0d47a1"
-    },
-    icon: Gift,
-    image: "/packet-blue.svg"
-  },
   {
     id: "red-lunar",
     name: "Red Lunar",
@@ -39,43 +100,58 @@ export const PACKET_THEMES: PacketTheme[] = [
     colors: {
       primary: "#d32f2f",
       secondary: "#ffcdd2",
-      accent: "#b71c1c",
-      envelopeBg: "linear-gradient(180deg, #ef5350 0%, #e53935 50%, #c62828 100%)",
-      envelopeFlap: "linear-gradient(180deg, #f44336 0%, #ef5350 100%)",
-      seal: "#b71c1c"
+      accent: "#7f1010",
+      envelopeBg: "linear-gradient(165deg, #ef5350 0%, #d32f2f 55%, #9a1414 100%)",
+      envelopeFlap: "linear-gradient(180deg, #f4675f 0%, #e03e39 100%)",
+      seal: "#f7c948",
     },
     icon: Sparkles,
-    image: "/packet-lunar.svg"
+    pattern: "stars",
   },
   {
-    id: "green-education",
-    name: "Green Education",
-    description: "Graduation theme",
+    id: "gold-thr",
+    name: "Gold THR",
+    description: "Festive bonus",
     colors: {
-      primary: "#388e3c",
-      secondary: "#c8e6c9",
-      accent: "#1b5e20",
-      envelopeBg: "linear-gradient(180deg, #66bb6a 0%, #4caf50 50%, #388e3c 100%)",
-      envelopeFlap: "linear-gradient(180deg, #81c784 0%, #66bb6a 100%)",
-      seal: "#2e7d32"
+      primary: "#f59e0b",
+      secondary: "#fde68a",
+      accent: "#8a4b06",
+      envelopeBg: "linear-gradient(165deg, #fbbf24 0%, #f59e0b 55%, #b45309 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fcd34d 0%, #fbbf24 100%)",
+      seal: "#7c2d12",
     },
-    icon: GraduationCap,
-    image: "/packet-graduation.svg"
+    icon: Coins,
+    pattern: "confetti",
   },
   {
-    id: "yellow-birthday",
-    name: "Yellow Birthday",
-    description: "Celebration time",
+    id: "eid-green",
+    name: "Eid Green",
+    description: "Ramadan & Lebaran",
     colors: {
-      primary: "#fbc02d",
-      secondary: "#fff9c4",
-      accent: "#f57f17",
-      envelopeBg: "linear-gradient(180deg, #ffeb3b 0%, #ffc107 50%, #ffb300 100%)",
-      envelopeFlap: "linear-gradient(180deg, #fff176 0%, #ffeb3b 100%)",
-      seal: "#f57f17"
+      primary: "#0f766e",
+      secondary: "#a7f3d0",
+      accent: "#053b36",
+      envelopeBg: "linear-gradient(165deg, #14b8a6 0%, #0f766e 55%, #064e46 100%)",
+      envelopeFlap: "linear-gradient(180deg, #2dd4bf 0%, #14b8a6 100%)",
+      seal: "#fbbf24",
     },
-    icon: Cake,
-    image: "/packet-birthday.svg"
+    icon: Moon,
+    pattern: "stars",
+  },
+  {
+    id: "blue",
+    name: "Classic Blue",
+    description: "Works for anything",
+    colors: {
+      primary: "#1e88e5",
+      secondary: "#90caf9",
+      accent: "#0b3c73",
+      envelopeBg: "linear-gradient(165deg, #42a5f5 0%, #1e88e5 55%, #1565c0 100%)",
+      envelopeFlap: "linear-gradient(180deg, #64b5f6 0%, #42a5f5 100%)",
+      seal: "#0d47a1",
+    },
+    icon: Gift,
+    pattern: "dots",
   },
   {
     id: "pink-love",
@@ -84,13 +160,13 @@ export const PACKET_THEMES: PacketTheme[] = [
     colors: {
       primary: "#e91e63",
       secondary: "#f8bbd9",
-      accent: "#ad1457",
-      envelopeBg: "linear-gradient(180deg, #f48fb1 0%, #f06292 50%, #e91e63 100%)",
+      accent: "#89123f",
+      envelopeBg: "linear-gradient(165deg, #f48fb1 0%, #ec407a 55%, #c2185b 100%)",
       envelopeFlap: "linear-gradient(180deg, #f8bbd9 0%, #f48fb1 100%)",
-      seal: "#c2185b"
+      seal: "#ad1457",
     },
     icon: Heart,
-    image: "/packet-love.svg"
+    pattern: "confetti",
   },
   {
     id: "purple-special",
@@ -99,42 +175,44 @@ export const PACKET_THEMES: PacketTheme[] = [
     colors: {
       primary: "#7b1fa2",
       secondary: "#e1bee7",
-      accent: "#4a148c",
-      envelopeBg: "linear-gradient(180deg, #ba68c8 0%, #9c27b0 50%, #7b1fa2 100%)",
+      accent: "#3d0d55",
+      envelopeBg: "linear-gradient(165deg, #ba68c8 0%, #9c27b0 55%, #6a1b9a 100%)",
       envelopeFlap: "linear-gradient(180deg, #ce93d8 0%, #ba68c8 100%)",
-      seal: "#6a1b9a"
+      seal: "#f0a353",
     },
     icon: Star,
-    image: "/packet-special.svg"
-  }
-  ,
-  {
-    id: "gold-thr",
-    name: "Gold THR",
-    description: "Festive bonus",
-    colors: {
-      primary: "#f59e0b",
-      secondary: "#fde68a",
-      accent: "#b45309",
-      envelopeBg: "linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%)",
-      envelopeFlap: "linear-gradient(180deg, #fcd34d 0%, #fbbf24 100%)",
-      seal: "#b45309"
-    },
-    icon: Coins
+    pattern: "stars",
   },
   {
-    id: "midnight",
-    name: "Midnight",
-    description: "Understated",
+    id: "yellow-birthday",
+    name: "Birthday",
+    description: "Many happy returns",
     colors: {
-      primary: "#1f2937",
-      secondary: "#9ca3af",
-      accent: "#030712",
-      envelopeBg: "linear-gradient(180deg, #374151 0%, #1f2937 50%, #111827 100%)",
-      envelopeFlap: "linear-gradient(180deg, #4b5563 0%, #374151 100%)",
-      seal: "#f59e0b"
+      primary: "#fbc02d",
+      secondary: "#fff9c4",
+      accent: "#8a5a05",
+      envelopeBg: "linear-gradient(165deg, #ffe066 0%, #ffc107 55%, #f59e0b 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fff3a0 0%, #ffe066 100%)",
+      seal: "#e11d48",
     },
-    icon: Crown
+    icon: Cake,
+    pattern: "confetti",
+    inkOnLight: true,
+  },
+  {
+    id: "green-education",
+    name: "Graduation",
+    description: "Well done",
+    colors: {
+      primary: "#388e3c",
+      secondary: "#c8e6c9",
+      accent: "#14411a",
+      envelopeBg: "linear-gradient(165deg, #66bb6a 0%, #43a047 55%, #2e7d32 100%)",
+      envelopeFlap: "linear-gradient(180deg, #81c784 0%, #66bb6a 100%)",
+      seal: "#fbbf24",
+    },
+    icon: GraduationCap,
+    pattern: "grid",
   },
   {
     id: "teal-ocean",
@@ -143,12 +221,28 @@ export const PACKET_THEMES: PacketTheme[] = [
     colors: {
       primary: "#0d9488",
       secondary: "#99f6e4",
-      accent: "#134e4a",
-      envelopeBg: "linear-gradient(180deg, #2dd4bf 0%, #14b8a6 50%, #0d9488 100%)",
+      accent: "#08403a",
+      envelopeBg: "linear-gradient(165deg, #2dd4bf 0%, #14b8a6 55%, #0f766e 100%)",
       envelopeFlap: "linear-gradient(180deg, #5eead4 0%, #2dd4bf 100%)",
-      seal: "#0f766e"
+      seal: "#0f766e",
     },
-    icon: Waves
+    icon: Waves,
+    pattern: "waves",
+  },
+  {
+    id: "midnight",
+    name: "Midnight",
+    description: "Understated",
+    colors: {
+      primary: "#1f2937",
+      secondary: "#9ca3af",
+      accent: "#000000",
+      envelopeBg: "linear-gradient(165deg, #374151 0%, #1f2937 55%, #0b0f16 100%)",
+      envelopeFlap: "linear-gradient(180deg, #4b5563 0%, #374151 100%)",
+      seal: "#f0a353",
+    },
+    icon: Crown,
+    pattern: "stars",
   },
   {
     id: "baby-blue",
@@ -157,12 +251,14 @@ export const PACKET_THEMES: PacketTheme[] = [
     colors: {
       primary: "#60a5fa",
       secondary: "#dbeafe",
-      accent: "#1e40af",
-      envelopeBg: "linear-gradient(180deg, #bfdbfe 0%, #93c5fd 50%, #60a5fa 100%)",
-      envelopeFlap: "linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)",
-      seal: "#3b82f6"
+      accent: "#1e3a8a",
+      envelopeBg: "linear-gradient(165deg, #dbeafe 0%, #bfdbfe 55%, #93c5fd 100%)",
+      envelopeFlap: "linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%)",
+      seal: "#3b82f6",
     },
-    icon: Baby
+    icon: Baby,
+    pattern: "dots",
+    inkOnLight: true,
   },
   {
     id: "confetti",
@@ -171,15 +267,476 @@ export const PACKET_THEMES: PacketTheme[] = [
     colors: {
       primary: "#ec4899",
       secondary: "#fbcfe8",
-      accent: "#831843",
+      accent: "#4c1d95",
       envelopeBg: "linear-gradient(140deg, #f472b6 0%, #a855f7 45%, #6366f1 100%)",
       envelopeFlap: "linear-gradient(140deg, #f9a8d4 0%, #c084fc 100%)",
-      seal: "#a21caf"
+      seal: "#fbbf24",
     },
-    icon: PartyPopper
-  }
+    icon: PartyPopper,
+    pattern: "confetti",
+  },
+  {
+    id: "sakura",
+    name: "Sakura",
+    description: "Soft and spring",
+    colors: {
+      primary: "#f472b6",
+      secondary: "#fce7f3",
+      accent: "#9d174d",
+      envelopeBg: "linear-gradient(165deg, #fce7f3 0%, #fbcfe8 55%, #f9a8d4 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fdf2f8 0%, #fce7f3 100%)",
+      seal: "#db2777",
+    },
+    icon: Flower2,
+    pattern: "dots",
+    inkOnLight: true,
+  },
+  {
+    id: "batik-indigo",
+    name: "Batik Indigo",
+    description: "Made in Indonesia",
+    colors: {
+      primary: "#3730a3",
+      secondary: "#c7d2fe",
+      accent: "#1e1b4b",
+      envelopeBg: "linear-gradient(165deg, #4f46e5 0%, #3730a3 55%, #1e1b4b 100%)",
+      envelopeFlap: "linear-gradient(180deg, #6366f1 0%, #4f46e5 100%)",
+      seal: "#d97706",
+    },
+    icon: Sparkles,
+    pattern: "batik",
+  },
+  {
+    id: "sunset",
+    name: "Sunset",
+    description: "Warm evening",
+    colors: {
+      primary: "#f97316",
+      secondary: "#fed7aa",
+      accent: "#7c2d12",
+      envelopeBg: "linear-gradient(165deg, #fb923c 0%, #f97316 40%, #db2777 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fdba74 0%, #fb923c 100%)",
+      seal: "#7c2d12",
+    },
+    icon: Sun,
+    pattern: "waves",
+  },
+  {
+    id: "forest",
+    name: "Forest",
+    description: "Quiet and green",
+    colors: {
+      primary: "#166534",
+      secondary: "#bbf7d0",
+      accent: "#052e16",
+      envelopeBg: "linear-gradient(165deg, #22c55e 0%, #16a34a 50%, #14532d 100%)",
+      envelopeFlap: "linear-gradient(180deg, #4ade80 0%, #22c55e 100%)",
+      seal: "#a16207",
+    },
+    icon: TreePine,
+    pattern: "grid",
+  },
+  {
+    id: "neon",
+    name: "Neon Night",
+    description: "Loud on purpose",
+    colors: {
+      primary: "#22d3ee",
+      secondary: "#a5f3fc",
+      accent: "#083344",
+      envelopeBg: "linear-gradient(165deg, #0f172a 0%, #164e63 55%, #0e7490 100%)",
+      envelopeFlap: "linear-gradient(180deg, #155e75 0%, #0e7490 100%)",
+      seal: "#22d3ee",
+    },
+    icon: Zap,
+    pattern: "grid",
+  },
+  {
+    id: "mono",
+    name: "Monochrome",
+    description: "No colour at all",
+    colors: {
+      primary: "#111111",
+      secondary: "#e5e5e5",
+      accent: "#000000",
+      envelopeBg: "linear-gradient(165deg, #fafafa 0%, #ededed 55%, #d4d4d4 100%)",
+      envelopeFlap: "linear-gradient(180deg, #ffffff 0%, #fafafa 100%)",
+      seal: "#111111",
+    },
+    icon: Trophy,
+    pattern: "stripes",
+    inkOnLight: true,
+  },
+  {
+    id: "wedding",
+    name: "Wedding",
+    description: "Cream and gold",
+    colors: {
+      primary: "#b08968",
+      secondary: "#f5ebe0",
+      accent: "#6b4423",
+      envelopeBg: "linear-gradient(165deg, #fdf8f3 0%, #f5ebe0 55%, #e3d5ca 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fffcf9 0%, #fdf8f3 100%)",
+      seal: "#b08968",
+    },
+    icon: Bird,
+    pattern: "dots",
+    inkOnLight: true,
+  },
+  {
+    id: "coffee",
+    name: "Kopi",
+    description: "Thanks for the coffee",
+    colors: {
+      primary: "#78350f",
+      secondary: "#e7d3bf",
+      accent: "#331705",
+      envelopeBg: "linear-gradient(165deg, #a16207 0%, #78350f 55%, #431407 100%)",
+      envelopeFlap: "linear-gradient(180deg, #b45309 0%, #a16207 100%)",
+      seal: "#e7d3bf",
+    },
+    icon: Coffee,
+    pattern: "stripes",
+  },
+  {
+    id: "winter",
+    name: "Winter",
+    description: "Cold and clean",
+    colors: {
+      primary: "#0ea5e9",
+      secondary: "#e0f2fe",
+      accent: "#0c4a6e",
+      envelopeBg: "linear-gradient(165deg, #e0f2fe 0%, #bae6fd 55%, #7dd3fc 100%)",
+      envelopeFlap: "linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%)",
+      seal: "#0284c7",
+    },
+    icon: Snowflake,
+    pattern: "stars",
+    inkOnLight: true,
+  },
+  {
+    id: "songket",
+    name: "Songket",
+    description: "Woven in gold",
+    colors: {
+      primary: "#7f1d1d",
+      secondary: "#fecaca",
+      accent: "#450a0a",
+      envelopeBg: "linear-gradient(165deg, #b91c1c 0%, #7f1d1d 55%, #450a0a 100%)",
+      envelopeFlap: "linear-gradient(180deg, #dc2626 0%, #b91c1c 100%)",
+      seal: "#e9b949",
+    },
+    icon: Wheat,
+    pattern: "weave",
+  },
+  {
+    id: "jade",
+    name: "Jade",
+    description: "Good fortune",
+    colors: {
+      primary: "#047857",
+      secondary: "#a7f3d0",
+      accent: "#022c22",
+      envelopeBg: "linear-gradient(165deg, #059669 0%, #047857 55%, #064e3b 100%)",
+      envelopeFlap: "linear-gradient(180deg, #10b981 0%, #059669 100%)",
+      seal: "#e9b949",
+    },
+    icon: Gem,
+    pattern: "diamonds",
+  },
+  {
+    id: "peach",
+    name: "Peach Blossom",
+    description: "Gentle and warm",
+    colors: {
+      primary: "#fb7185",
+      secondary: "#ffe4e6",
+      accent: "#881337",
+      envelopeBg: "linear-gradient(165deg, #ffe4e6 0%, #fecdd3 55%, #fda4af 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%)",
+      seal: "#e11d48",
+    },
+    icon: Cherry,
+    pattern: "floral",
+    inkOnLight: true,
+  },
+  {
+    id: "deep-sea",
+    name: "Deep Sea",
+    description: "Quiet and deep",
+    colors: {
+      primary: "#0369a1",
+      secondary: "#bae6fd",
+      accent: "#082f49",
+      envelopeBg: "linear-gradient(165deg, #0284c7 0%, #075985 55%, #0c4a6e 100%)",
+      envelopeFlap: "linear-gradient(180deg, #0ea5e9 0%, #0284c7 100%)",
+      seal: "#7dd3fc",
+    },
+    icon: Shell,
+    pattern: "scallop",
+  },
+  {
+    id: "terracotta",
+    name: "Terracotta",
+    description: "Earthy",
+    colors: {
+      primary: "#c2410c",
+      secondary: "#fed7aa",
+      accent: "#7c2d12",
+      envelopeBg: "linear-gradient(165deg, #ea580c 0%, #c2410c 55%, #7c2d12 100%)",
+      envelopeFlap: "linear-gradient(180deg, #f97316 0%, #ea580c 100%)",
+      seal: "#fed7aa",
+    },
+    icon: Mountain,
+    pattern: "chevron",
+  },
+  {
+    id: "lavender",
+    name: "Lavender",
+    description: "Soft and calm",
+    colors: {
+      primary: "#8b5cf6",
+      secondary: "#ede9fe",
+      accent: "#4c1d95",
+      envelopeBg: "linear-gradient(165deg, #ede9fe 0%, #ddd6fe 55%, #c4b5fd 100%)",
+      envelopeFlap: "linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%)",
+      seal: "#7c3aed",
+    },
+    icon: Feather,
+    pattern: "floral",
+    inkOnLight: true,
+  },
+  {
+    id: "mint",
+    name: "Mint",
+    description: "Fresh start",
+    colors: {
+      primary: "#10b981",
+      secondary: "#d1fae5",
+      accent: "#065f46",
+      envelopeBg: "linear-gradient(165deg, #d1fae5 0%, #a7f3d0 55%, #6ee7b7 100%)",
+      envelopeFlap: "linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%)",
+      seal: "#059669",
+    },
+    icon: Leaf,
+    pattern: "scallop",
+    inkOnLight: true,
+  },
+  {
+    id: "formal",
+    name: "Black Tie",
+    description: "For something formal",
+    colors: {
+      primary: "#111827",
+      secondary: "#d1d5db",
+      accent: "#000000",
+      envelopeBg: "linear-gradient(165deg, #1f2937 0%, #111827 55%, #030712 100%)",
+      envelopeFlap: "linear-gradient(180deg, #374151 0%, #1f2937 100%)",
+      seal: "#d4af37",
+    },
+    icon: Handshake,
+    pattern: "diamonds",
+  },
+  {
+    id: "sunrise",
+    name: "Sunrise",
+    description: "A new day",
+    colors: {
+      primary: "#f97316",
+      secondary: "#fef3c7",
+      accent: "#9a3412",
+      envelopeBg: "linear-gradient(165deg, #fef3c7 0%, #fdba74 55%, #fb7185 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%)",
+      seal: "#ea580c",
+    },
+    icon: Sunrise,
+    pattern: "clouds",
+    inkOnLight: true,
+  },
+  {
+    id: "rose-gold",
+    name: "Rose Gold",
+    description: "Quietly expensive",
+    colors: {
+      primary: "#be7a68",
+      secondary: "#f5d0c5",
+      accent: "#6b3a2e",
+      envelopeBg: "linear-gradient(165deg, #e8b4a4 0%, #d29585 55%, #b0705d 100%)",
+      envelopeFlap: "linear-gradient(180deg, #f5d0c5 0%, #e8b4a4 100%)",
+      seal: "#6b3a2e",
+    },
+    icon: Diamond,
+    pattern: "weave",
+  },
+  {
+    id: "cobalt",
+    name: "Cobalt",
+    description: "Bold and simple",
+    colors: {
+      primary: "#1d4ed8",
+      secondary: "#bfdbfe",
+      accent: "#172554",
+      envelopeBg: "linear-gradient(165deg, #2563eb 0%, #1d4ed8 55%, #1e3a8a 100%)",
+      envelopeFlap: "linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)",
+      seal: "#f0a353",
+    },
+    icon: Anchor,
+    pattern: "chevron",
+  },
+  {
+    id: "maple",
+    name: "Maple",
+    description: "Autumn",
+    colors: {
+      primary: "#b45309",
+      secondary: "#fde68a",
+      accent: "#78350f",
+      envelopeBg: "linear-gradient(165deg, #d97706 0%, #b45309 55%, #78350f 100%)",
+      envelopeFlap: "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)",
+      seal: "#fde68a",
+    },
+    icon: Flame,
+    pattern: "floral",
+  },
+  {
+    id: "tropical",
+    name: "Tropical",
+    description: "Holiday money",
+    colors: {
+      primary: "#0891b2",
+      secondary: "#a5f3fc",
+      accent: "#164e63",
+      envelopeBg: "linear-gradient(165deg, #22d3ee 0%, #0891b2 55%, #155e75 100%)",
+      envelopeFlap: "linear-gradient(180deg, #67e8f9 0%, #22d3ee 100%)",
+      seal: "#fbbf24",
+    },
+    icon: Palmtree,
+    pattern: "waves",
+  },
+  {
+    id: "bamboo",
+    name: "Bamboo",
+    description: "Steady growth",
+    colors: {
+      primary: "#4d7c0f",
+      secondary: "#d9f99d",
+      accent: "#1a2e05",
+      envelopeBg: "linear-gradient(165deg, #65a30d 0%, #4d7c0f 55%, #365314 100%)",
+      envelopeFlap: "linear-gradient(180deg, #84cc16 0%, #65a30d 100%)",
+      seal: "#d9f99d",
+    },
+    icon: Wheat,
+    pattern: "bamboo",
+  },
+  {
+    id: "lotus",
+    name: "Lotus",
+    description: "Calm wishes",
+    colors: {
+      primary: "#c026d3",
+      secondary: "#f5d0fe",
+      accent: "#701a75",
+      envelopeBg: "linear-gradient(165deg, #f5d0fe 0%, #f0abfc 55%, #e879f9 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fae8ff 0%, #f5d0fe 100%)",
+      seal: "#a21caf",
+    },
+    icon: Flower2,
+    pattern: "floral",
+    inkOnLight: true,
+  },
+  {
+    id: "prosperity",
+    name: "Prosperity",
+    description: "Fortune and coins",
+    colors: {
+      primary: "#a16207",
+      secondary: "#fef08a",
+      accent: "#422006",
+      envelopeBg: "linear-gradient(165deg, #ca8a04 0%, #a16207 55%, #713f12 100%)",
+      envelopeFlap: "linear-gradient(180deg, #eab308 0%, #ca8a04 100%)",
+      seal: "#fef08a",
+    },
+    icon: Coins,
+    pattern: "coins",
+  },
+  {
+    id: "sweetheart",
+    name: "Sweetheart",
+    description: "With love",
+    colors: {
+      primary: "#e11d48",
+      secondary: "#fecdd3",
+      accent: "#4c0519",
+      envelopeBg: "linear-gradient(165deg, #f43f5e 0%, #e11d48 55%, #9f1239 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fb7185 0%, #f43f5e 100%)",
+      seal: "#fecdd3",
+    },
+    icon: Heart,
+    pattern: "hearts",
+  },
+  {
+    id: "candy",
+    name: "Candy",
+    description: "Just for fun",
+    colors: {
+      primary: "#db2777",
+      secondary: "#fbcfe8",
+      accent: "#500724",
+      envelopeBg: "linear-gradient(140deg, #fbbf24 0%, #f472b6 50%, #a78bfa 100%)",
+      envelopeFlap: "linear-gradient(140deg, #fde68a 0%, #f9a8d4 100%)",
+      seal: "#db2777",
+    },
+    icon: Candy,
+    pattern: "sparks",
+  },
+  {
+    id: "citrus",
+    name: "Citrus",
+    description: "Bright and light",
+    colors: {
+      primary: "#ca8a04",
+      secondary: "#fef9c3",
+      accent: "#713f12",
+      envelopeBg: "linear-gradient(165deg, #fef9c3 0%, #fde047 55%, #facc15 100%)",
+      envelopeFlap: "linear-gradient(180deg, #fefce8 0%, #fef9c3 100%)",
+      seal: "#a16207",
+    },
+    icon: Citrus,
+    pattern: "dots",
+    inkOnLight: true,
+  },
+  {
+    id: "harmony",
+    name: "Harmony",
+    description: "A thank you",
+    colors: {
+      primary: "#475569",
+      secondary: "#e2e8f0",
+      accent: "#0f172a",
+      envelopeBg: "linear-gradient(165deg, #64748b 0%, #475569 55%, #1e293b 100%)",
+      envelopeFlap: "linear-gradient(180deg, #94a3b8 0%, #64748b 100%)",
+      seal: "#f0a353",
+    },
+    icon: Music,
+    pattern: "scallop",
+  },
+  {
+    id: "launch",
+    name: "Launch",
+    description: "New job, new thing",
+    colors: {
+      primary: "#6366f1",
+      secondary: "#c7d2fe",
+      accent: "#1e1b4b",
+      envelopeBg: "linear-gradient(165deg, #818cf8 0%, #6366f1 50%, #4338ca 100%)",
+      envelopeFlap: "linear-gradient(180deg, #a5b4fc 0%, #818cf8 100%)",
+      seal: "#f0a353",
+    },
+    icon: Rocket,
+    pattern: "confetti",
+  },
 ]
 
 export function getPacketTheme(id: string): PacketTheme | undefined {
-  return PACKET_THEMES.find(theme => theme.id === id)
+  return PACKET_THEMES.find((theme) => theme.id === id)
 }
