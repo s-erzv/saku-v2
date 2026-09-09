@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Contract, JsonRpcProvider, formatUnits, parseUnits } from 'ethers';
 import { useMpcWallet } from './useMpcWallet';
-import { CONTRACTS, MAX_APPROVAL, NETWORK_CONFIG } from '@/lib/config';
+import { CONTRACTS, MAX_APPROVAL, NETWORK_CONFIG, RECEIPT_POLLING_MS } from '@/lib/config';
 import { awaitWarmApproval } from './useWarmApproval';
 
 const USDC_DECIMALS = 6;
@@ -91,6 +91,7 @@ export function useStaking() {
     try {
       const provider = new JsonRpcProvider(NETWORK_CONFIG.rpcUrl, NETWORK_CONFIG.chainId, {
         staticNetwork: true,
+        pollingInterval: RECEIPT_POLLING_MS,
       });
       const staking = new Contract(stakingAddress, STAKING_ABI, provider);
 

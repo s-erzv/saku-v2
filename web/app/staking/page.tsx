@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ExternalLink, Loader2, TrendingUp, Wallet } from "lucide-react"
+import { ArrowLeft, CheckCircle, ExternalLink, Loader2, TrendingUp, Wallet } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
@@ -32,6 +32,17 @@ export default function StakingPage() {
 
   const [tab, setTab] = useState<Tab>("stake")
   const [amount, setAmount] = useState("")
+  /**
+   * What the last claim actually paid out, kept so the screen can say so.
+   *
+   * Claiming used to leave no trace: the reward figure went to zero, the button that named the
+   * amount unmounted with it, and the only evidence left was a "View last transaction" link
+   * shared with staking and unstaking. On a reward of 0.17 USDC against a balance in the
+   * hundreds, nothing on screen visibly moved — so a claim that worked perfectly was
+   * indistinguishable from one that did nothing. The amount has to be read before the claim,
+   * because afterwards the contract reports zero.
+   */
+  const [claimed, setClaimed] = useState<string | null>(null)
 
   const walletAddress = address ?? wallet?.address ?? null
   const { balances, refresh } = useTokenBalances(walletAddress)
@@ -143,9 +154,16 @@ export default function StakingPage() {
 
             {hasPending && (
               <button
-                onClick={claim}
+                onClick={async () => {
+                  const earned = info?.pending ?? "0"
+                  const hash = await claim()
+                  // Only on success; a rejected signature or a failed transaction must not
+                  // report a payout that never happened.
+                  if (hash) setClaimed(earned)
+                }}
                 disabled={busy}
-                className="w-full py-3.5 rounded-2xl bg-emerald-600 text-white font-bold text-sm disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                style={{ background: "#F0A353" }}
+                className="w-full py-3.5 rounded-2xl text-white font-bold text-sm disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
                 {action === "claiming" && <Loader2 className="w-4 h-4 animate-spin" />}
                 {action === "claiming" ? "Claiming…" : `Claim ${info?.pending} USDC`}
@@ -213,6 +231,20 @@ export default function StakingPage() {
               {!busy && (tab === "stake" ? "Stake USDC" : "Unstake USDC")}
             </button>
 
+            {claimed && !busy && (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+                <div className="space-y-0.5 min-w-0">
+                  <p className="text-sm font-bold text-emerald-900 tabular-nums">
+                    {claimed} USDC claimed
+                  </p>
+                  <p className="text-xs text-emerald-800">
+                    It is in your wallet balance now.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {lastTxHash && !busy && (
               <a
                 href={explorerTxUrl(lastTxHash)}
@@ -224,9 +256,8 @@ export default function StakingPage() {
               </a>
             )}
 
-            <p className="text-[11px] text-center text-black/35 leading-relaxed">
-              Rewards are funded, not minted — the contract only pays what it holds. Your
-              principal cannot be withdrawn by anyone but you.
+            <p className="text-[11px] text-center text-black/35">
+              Rewards are funded, not minted — the contract only pays what it holds.
             </p>
           </>
         )}
