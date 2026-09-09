@@ -13,7 +13,7 @@
 import { parseUnits } from 'ethers';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { CHAIN_ID, USDC_DECIMALS, getSettler, getUsdcAddress, payoutUsdc } from '@/lib/chain';
-import { currencyForCountry, roundToCurrency, type CurrencyInfo } from '@/lib/currency';
+import { chargeCurrencyFor, currencyForCountry, roundToCurrency, type CurrencyInfo } from '@/lib/currency';
 import { getUsdRate, type RateSource } from '@/lib/fx';
 import { topupChargeableUsdc, topupFee } from '@/lib/fees';
 
@@ -34,7 +34,12 @@ export interface TopupQuote {
   amountUsdc: number;
   /** Platform fee, in USDC terms, added on top rather than deducted from the tokens. */
   feeUsdc: number;
-  /** What the user pays, already rounded to the currency's real precision. */
+
+  /**
+   * What the gateway is actually asked to charge, already rounded to that currency's real
+   * precision. This is the money that moves, so it is what the database records and what
+   * `createInvoice` is handed.
+   */
   grossAmount: number;
   /** The fee expressed in the charged currency, for showing as a line item. */
   feeAmount: number;
@@ -42,6 +47,21 @@ export interface TopupQuote {
   /** Units of `currency` per 1 USD. */
   fxRate: number;
   fxSource: RateSource;
+
+  /**
+   * The same price in the user's own currency. Equal to the charge fields whenever the gateway
+   * account can bill that currency, which is the only case that exists for an Indonesian user.
+   */
+  displayAmount: number;
+  displayFeeAmount: number;
+  displayCurrency: CurrencyInfo;
+  displayFxRate: number;
+  /**
+   * True when the two differ. The UI must say so before the user commits — someone in Malaysia
+   * agreeing to a ringgit figure and then seeing rupiah leave their account has been misled,
+   * even though the amount is right.
+   */
+  converted: boolean;
 }
 
 /**
@@ -49,22 +69,42 @@ export interface TopupQuote {
  *
  * USDC is treated as 1 USD (see `lib/fx.ts`). The quote is always produced server-side: the
  * client renders it, but what is charged and what is credited are both derived here.
+ *
+ * Two currencies come out of this, not one. The user's own is what the screen leads with,
+ * because a price in a currency you do not think in is not a price you can judge. The charge
+ * currency is whatever the gateway account can actually present (see `lib/currency.ts`), and
+ * both are derived from the same USD figure, so they never disagree about what was bought.
  */
 export async function quoteTopup(amountUsdc: number, countryCode: string | null): Promise<TopupQuote> {
-  const currency = currencyForCountry(countryCode);
-  const { rate, source } = await getUsdRate(currency.code);
+  const displayCurrency = currencyForCountry(countryCode);
+  const currency = chargeCurrencyFor(displayCurrency);
+  const converted = currency.code !== displayCurrency.code;
 
+  const [charge, display] = await Promise.all([
+    getUsdRate(currency.code),
+    converted ? getUsdRate(displayCurrency.code) : Promise.resolve(null),
+  ]);
+
+  const displayRate = display?.rate ?? charge.rate;
   const fee = topupFee(amountUsdc).feeUsdc;
+  const chargeable = topupChargeableUsdc(amountUsdc);
 
   return {
     amountUsdc,
     feeUsdc: fee,
     // Priced off tokens-plus-fee, so the user receives exactly the amount they asked for.
-    grossAmount: roundToCurrency(topupChargeableUsdc(amountUsdc) * rate, currency),
-    feeAmount: roundToCurrency(fee * rate, currency),
+    grossAmount: roundToCurrency(chargeable * charge.rate, currency),
+    feeAmount: roundToCurrency(fee * charge.rate, currency),
     currency,
-    fxRate: rate,
-    fxSource: source,
+    fxRate: charge.rate,
+    // The charge rate's source is the one that matters: it is the number the money was derived
+    // from, and the one the UI labels as approximate when no live rate was available.
+    fxSource: charge.source,
+    displayAmount: roundToCurrency(chargeable * displayRate, displayCurrency),
+    displayFeeAmount: roundToCurrency(fee * displayRate, displayCurrency),
+    displayCurrency,
+    displayFxRate: displayRate,
+    converted,
   };
 }
 
@@ -166,7 +206,11 @@ export async function settleTopup(
       user_id: claimed.user_id,
       type: 'system',
       message: 'Top up complete — your balance has been updated.',
-      metadata: { order_id: orderId, tx_hash: receipt.hash.toLowerCase() },
+      metadata: {
+        order_id: orderId,
+        tx_hash: receipt.hash.toLowerCase(),
+        amount: String(claimed.token_amount),
+      },
     });
 
     return { status: 'completed', txHash: receipt.hash };

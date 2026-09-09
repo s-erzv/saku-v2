@@ -17,21 +17,33 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, CheckCircle, ExternalLink, Loader2, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { parseUnits } from "ethers"
+import { ArrowLeft, CheckCircle, ExternalLink, Loader2, Receipt, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTopup } from "@/hooks/useTopup"
-import { explorerTxUrl } from "@/lib/config"
+import { type SakuTransaction } from "@/hooks/useTransactions"
+import { CONTRACTS, explorerTxUrl } from "@/lib/config"
+import ReceiptModal from "@/components/transactions/receipt-modal"
 
 const QUICK_AMOUNTS = [5, 10, 25, 50]
 
-interface Quote {
+/** The half of a quote that can be rendered as money: symbol, precision, and how to group it. */
+interface Money {
   currency: string
   symbol: string
   decimals: number
   locale: string
   rate: number
+}
+
+interface Quote extends Money {
   source: "live" | "stale" | "fallback"
+  /**
+   * Whether a real charge happens. False on a Xendit sandbox account, which is what makes the
+   * testnet warning below disappear on its own during a demo and come back in production.
+   */
+  realPayment: boolean
   feeBps: number
   direction: "up" | "down" | "flat"
   changePct: number
@@ -56,6 +68,7 @@ export default function TopupPage() {
   const [quote, setQuote] = useState<Quote | null>(null)
   /** Set briefly when the rate changes while the user is looking at it. */
   const [rateMoved, setRateMoved] = useState<"up" | "down" | null>(null)
+  const [showReceipt, setShowReceipt] = useState(false)
 
   useEffect(() => {
     if (!token) return
@@ -127,9 +140,30 @@ export default function TopupPage() {
   if (!user) return null
 
   if (phase === "done") {
+    const receiptTx: SakuTransaction | null = payoutTxHash
+      ? {
+          txHash: payoutTxHash,
+          type: "topup",
+          status: "confirmed",
+          amount: parseUnits(String(amountUsdc || 0), 6).toString(),
+          tokenAddress: CONTRACTS.USDC,
+          occurredAt: new Date().toISOString(),
+          direction: "in",
+          fromAddress: null,
+          toAddress: walletAddress,
+          // A top up has no human on the other end; the receipt prints the gateway instead.
+          counterpartyName: null,
+          counterpartyIsUser: false,
+          context: null,
+          feeAmount: parseUnits(feeUsdc.toFixed(6), 6).toString(),
+        }
+      : null
+
     return (
-      <div className="min-h-dvh bg-white flex items-center justify-center p-6 font-sans">
-        <div className="w-full max-w-sm text-center space-y-6 animate-in zoom-in-95 duration-300">
+      // Matches the form the user was just on, and the callback screen they may have arrived
+      // through instead — all three are the same `max-w-lg` column.
+      <div className="min-h-dvh bg-white font-sans flex items-center justify-center">
+        <div className="w-full max-w-lg mx-auto px-5 py-6 text-center space-y-6 animate-in zoom-in-95 duration-300">
           <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
             <CheckCircle className="w-8 h-8 text-emerald-600" />
           </div>
@@ -151,13 +185,25 @@ export default function TopupPage() {
             </a>
           )}
 
-          <button
-            onClick={() => router.push("/home")}
-            className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
-          >
-            Back to Home
-          </button>
+          <div className="space-y-2">
+            {receiptTx && (
+              <button
+                onClick={() => setShowReceipt(true)}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-black/12 text-sm font-bold hover:border-black/25 transition-colors"
+              >
+                <Receipt className="w-4 h-4" /> View receipt
+              </button>
+            )}
+            <button
+              onClick={() => router.push("/home")}
+              className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
+            >
+              Back to Home
+            </button>
+          </div>
         </div>
+
+        {showReceipt && receiptTx && <ReceiptModal transaction={receiptTx} onClose={() => setShowReceipt(false)} />}
       </div>
     )
   }
@@ -219,6 +265,7 @@ export default function TopupPage() {
                       <span>You pay</span>
                       <span className="tabular-nums">{formatPrice(price)}</span>
                     </div>
+
                   </div>
                 ) : (
                   <p className="mt-4 text-sm font-semibold text-black/50">You pay —</p>
@@ -280,13 +327,21 @@ export default function TopupPage() {
               <p className="text-xs text-black/35 text-center">{minUsdc}–{maxUsdc} USDC</p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-black/[0.03] border border-black/5">
-              <p className="text-[11px] leading-relaxed text-black/55">
-                <span className="font-bold text-black/75">Heads up:</span> the payment is processed
-                by Xendit and is real. What arrives in your wallet is USDC on BNB Smart Chain
-                Testnet — a test token, not a real-world asset.
-              </p>
-            </div>
+            {/*
+              Only when money genuinely moves. On a Xendit sandbox account nothing is charged, so
+              this is noise about a transaction that is not happening and the screen stays clean.
+              The moment a production key is configured it returns by itself — taking real money
+              for a token that only exists on a testnet is not something to leave unsaid.
+            */}
+            {quote?.realPayment && (
+              <div className="p-4 rounded-2xl bg-black/[0.03] border border-black/5">
+                <p className="text-[11px] leading-relaxed text-black/55">
+                  <span className="font-bold text-black/75">Heads up:</span> the payment is processed
+                  by Xendit and is real. What arrives in your wallet is USDC on BNB Smart Chain
+                  Testnet — a test token, not a real-world asset.
+                </p>
+              </div>
+            )}
 
             {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 

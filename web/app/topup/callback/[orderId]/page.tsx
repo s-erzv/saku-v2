@@ -44,8 +44,11 @@ export default function TopupCallbackPage({
   const failed = phase === "failed"
 
   return (
-    <div className="min-h-[100dvh] bg-[#F9EFE5] flex items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-[360px] bg-white rounded-[2rem] p-8 shadow-xl text-center space-y-5">
+    // Same column as `/topup` — `max-w-lg` with the app's `px-5` gutters. Returning from Xendit
+    // used to drop the user into a narrower, full-bleed card, so the screen they came back to
+    // did not line up with the one they left.
+    <div className="min-h-dvh bg-white font-sans flex items-center justify-center">
+      <div className="w-full max-w-lg mx-auto px-5 py-6 text-center space-y-6 animate-in zoom-in-95 duration-300">
         <div
           className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${
             settled ? "bg-emerald-50" : failed ? "bg-red-50" : "bg-black/5"
@@ -60,11 +63,11 @@ export default function TopupCallbackPage({
           )}
         </div>
 
-        <div className="space-y-1">
-          <h1 className="text-xl font-black tracking-tight">
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-black tracking-tight">
             {settled ? "Top up complete" : failed ? "Not finished" : "Processing your top up…"}
           </h1>
-          <p className="text-sm text-[#7F8790]">
+          <p className="text-sm text-black/50">
             {settled
               ? "Your balance has been updated."
               : failed
@@ -73,7 +76,7 @@ export default function TopupCallbackPage({
           </p>
         </div>
 
-        <p className="text-[11px] font-mono text-[#7F8790] break-all">{orderId}</p>
+        <p className="text-[11px] font-mono text-black/35 break-all">{orderId}</p>
 
         {payoutTxHash && (
           <a
@@ -88,7 +91,7 @@ export default function TopupCallbackPage({
 
         <button
           onClick={() => router.push("/home")}
-          className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-all"
+          className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
         >
           Back to Home
         </button>
