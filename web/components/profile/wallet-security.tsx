@@ -27,10 +27,7 @@ export default function WalletSecurity() {
         <div className="min-w-0">
           <h3 className="text-base font-bold tracking-tight">Wallet security</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Your key never touches your device or Saku&apos;s database — it lives inside Turnkey,
-            an isolated key-management enclave, and only signs when you&apos;ve verified an OTP
-            from this phone number. Nothing to write down, nothing to lose by clearing your
-            browser.
+            Your key lives inside Turnkey, never on this device. Nothing to write down.
           </p>
         </div>
       </div>

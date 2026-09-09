@@ -13,10 +13,12 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Contract, parseUnits } from 'ethers';
+import { Contract, formatUnits, parseUnits } from 'ethers';
 import { useAuth } from './useAuth';
 import { useMpcWallet } from './useMpcWallet';
 import { CONTRACTS } from '@/lib/config';
+import { chargePlatformFee, getTreasuryAddress } from '@/lib/platform-fee';
+import { transferFee } from '@/lib/fees';
 
 const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
@@ -43,7 +45,7 @@ export type TransferPhase =
   | 'failed';
 
 export function useTransfer() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { getSigner, address } = useMpcWallet();
 
   const [phase, setPhase] = useState<TransferPhase>('idle');
@@ -67,7 +69,7 @@ export function useTransfer() {
       try {
         const res = await fetch('/api/transfer/resolve', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phone, countryCode }),
         });
         const data = await res.json();
@@ -97,7 +99,7 @@ export function useTransfer() {
         return null;
       }
     },
-    [token]
+    [isAuthenticated]
   );
 
   /** Sign and send. `amount` is human-readable USDC, e.g. "1.25". */
@@ -108,6 +110,10 @@ export function useTransfer() {
 
       try {
         const value = parseUnits(amount, USDC_DECIMALS);
+        // Added on top: `value` is what the recipient gets, `fee` is extra, and the wallet needs
+        // both. Charging the total against the balance check is what stops a transfer that
+        // succeeds and then cannot pay its own fee.
+        const fee = parseUnits(transferFee(Number(amount)).feeUsdc.toFixed(USDC_DECIMALS), USDC_DECIMALS);
         const signer = await getSigner();
         const usdc = new Contract(CONTRACTS.USDC, ERC20_ABI, signer);
 
@@ -115,19 +121,33 @@ export function useTransfer() {
         // than an on-chain revert the user pays gas for.
         if (address) {
           const balance: bigint = await usdc.balanceOf(address);
-          if (balance < value) throw new Error('Not enough USDC in your wallet.');
+          if (balance < value + fee) {
+            throw new Error(
+              `Not enough USDC: this transfer needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
+            );
+          }
         }
+
+        // Fetched before signing so the fee leg does not wait on a round trip afterwards.
+        const treasury = await getTreasuryAddress(isAuthenticated);
 
         const tx = await usdc.transfer(to, value);
         setTxHash(tx.hash);
         await tx.wait();
 
+        const feeTxHash = await chargePlatformFee({
+          signer,
+          usdcAddress: CONTRACTS.USDC,
+          treasury,
+          feeUnits: fee,
+        });
+
         // Record after confirmation: the route verifies the receipt, so submitting earlier
         // would just 404 on a transaction the node has not mined yet.
         await fetch('/api/transfer/record', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ txHash: tx.hash }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
         }).catch(() => {
           /* History is a cache. The transfer already happened. */
         });
@@ -146,7 +166,7 @@ export function useTransfer() {
         return null;
       }
     },
-    [address, getSigner, token]
+    [address, getSigner, isAuthenticated]
   );
 
   return { phase, recipient, txHash, error, resolveRecipient, send, reset };

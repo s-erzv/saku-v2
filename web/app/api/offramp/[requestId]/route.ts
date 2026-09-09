@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { CHAIN_ID } from '@/lib/chain';
 import { refundOfframp } from '@/lib/escrow';
 
@@ -56,15 +56,7 @@ async function loadOwned(userId: string, requestId: string): Promise<OfframpRow 
   return (data as OfframpRow | null) ?? null;
 }
 
-async function requireSession(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return null;
-  try {
-    return await verifyToken(sessionToken);
-  } catch {
-    return null;
-  }
-}
+const requireSession = getSession;
 
 export async function GET(request: Request, { params }: { params: Promise<{ requestId: string }> }) {
   const session = await requireSession(request);

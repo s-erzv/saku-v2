@@ -58,3 +58,15 @@ export function explorerAddressUrl(address: string): string {
 export function explorerTxUrl(hash: string): string {
   return `${NETWORK_CONFIG.blockExplorer}/tx/${hash}`;
 }
+
+/**
+ * Poll for receipts at roughly one block, not ethers' 4-second default.
+ *
+ * BSC testnet produces a block every ~0.45s. Waiting 4s between `eth_getTransactionReceipt`
+ * calls means `tx.wait()` spends most of its time sitting on a transaction that was mined
+ * almost immediately — measured as 2-4 seconds of pure dead air on every transfer, top up,
+ * packet and split-bill payment in the app.
+ *
+ * 500ms costs a handful of extra RPC calls per transaction and gets that back.
+ */
+export const RECEIPT_POLLING_MS = 500;

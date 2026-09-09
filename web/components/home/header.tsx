@@ -1,8 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { LogOut } from "lucide-react"
+import Link from "next/link"
+import { Bell, LogOut } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
+import { useNotifications } from "@/hooks/useNotifications"
 
 /**
  * v1 fetched the profile row itself with the anon key and showed the user's phone number.
@@ -12,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth"
  */
 export default function HomeHeader() {
   const { user, logout } = useAuth()
+  const { unreadCount } = useNotifications()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   const label = user?.display_name?.trim() || (user ? `Saku ${user.phone_hash.slice(-4)}` : "Saku User")
@@ -64,6 +67,17 @@ export default function HomeHeader() {
             <p className="text-xl font-bold text-slate-900 truncate tracking-tight leading-tight">{label}</p>
           </div>
         </div>
+
+        <Link
+          href="/notifications"
+          className="relative shrink-0 w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
+          aria-label="Notifications"
+        >
+          <Bell className="w-5 h-5 text-slate-700" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+          )}
+        </Link>
       </div>
     </header>
   )

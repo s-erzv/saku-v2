@@ -31,7 +31,7 @@ const ERC20_ABI = [
 ];
 
 const ESCROW_ABI = [
-  'function lockForOfframp(uint256 amount, address token, bytes32 recipientPhoneHash, uint256 rateExpiry) returns (bytes32)',
+  'function lockForOfframp(uint256 amount, address isAuthenticated, bytes32 recipientPhoneHash, uint256 rateExpiry) returns (bytes32)',
 ];
 
 /** Matches `RATE_EXPIRY_SECONDS` in lib/escrow.ts — the contract enforces the 30-120s bounds. */
@@ -62,7 +62,7 @@ export interface OfframpResult {
 }
 
 export function useOfframp() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { getSigner, address } = useMpcWallet();
 
   const [phase, setPhase] = useState<OfframpPhase>('idle');
@@ -109,7 +109,7 @@ export function useOfframp() {
       try {
         const res = await fetch('/api/offramp/recipient', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ rail, ...destination }),
         });
         const data = await res.json();
@@ -128,16 +128,24 @@ export function useOfframp() {
         return null;
       }
     },
-    [token]
+    [isAuthenticated]
   );
 
-  /** Approve if needed, lock, then hand off to the server to settle. */
+  /**
+   * Approve if needed, lock, then hand off to the server to settle.
+   *
+   * `netUsdc` is what the user asked to have delivered (mirrors top up's fee-on-top model);
+   * `grossUsdc` — `netUsdc` plus the fee, from the latest quote — is what actually gets locked
+   * on-chain. Both travel to `/api/offramp/lock`: the server recomputes the fee forward from
+   * `netUsdc` and checks it against the amount the lock transaction actually moved, so a stale
+   * quote can't settle against numbers that no longer match.
+   */
   const send = useCallback(
-    async (amountUsdc: string, rail: Rail, phoneHash: string) => {
+    async (netUsdc: string, grossUsdc: string, rail: Rail, phoneHash: string) => {
       setError(null);
 
       try {
-        const value = parseUnits(amountUsdc, USDC_DECIMALS);
+        const value = parseUnits(grossUsdc, USDC_DECIMALS);
         const signer = await getSigner();
         const usdc = new Contract(CONTRACTS.USDC, ERC20_ABI, signer);
         const escrowAddress = process.env.NEXT_PUBLIC_ESCROW_ADDRESS as string;
@@ -175,16 +183,18 @@ export function useOfframp() {
         setLockTxHash(lockTx.hash);
         await lockTx.wait();
 
-        // The clock is running now: the contract will refuse to settle after 120 seconds, so
-        // this call is not deferred or retried in the background.
+        // The lock itself only needs the response below to get a request id — settlement now
+        // runs after that response on the server (`waitUntil` in /api/offramp/lock), so this
+        // call returns as soon as the lock is recorded rather than after the swap and payout.
         setPhase('settling');
         const destination = recipientDestinationRef.current;
         const res = await fetch('/api/offramp/lock', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             txHash: lockTx.hash,
             rail,
+            netUsdc: Number(netUsdc),
             recipientPhone: destination?.kind === 'phone' ? destination.phone : undefined,
             countryCode: destination?.kind === 'phone' ? destination.countryCode : undefined,
             bankCode: destination?.kind === 'bank' ? destination.bankCode : undefined,
@@ -194,18 +204,84 @@ export function useOfframp() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Transfer could not be completed');
 
-        setResult({
-          requestId: data.requestId,
-          settleTxHash: data.settleTxHash,
-          fiatAmount: data.fiatAmount,
-          currency: data.currency,
-          refundableAfter: data.refundableAfter,
-        });
+        const requestId = data.requestId as string;
+        setResult({ requestId });
 
-        // A lock that did not settle is not a lost payment — it is a refund waiting on the
-        // rate-lock deadline, and the UI says so rather than showing a generic failure.
-        setPhase(data.status === 'settled' ? 'done' : 'needs-refund');
-        return data;
+        // Settlement is happening in the background on the server now — find out how it went by
+        // polling the same status route the "Claim refund" screen already used. Bounded well
+        // past the 120s rate lock: if it is ever still unresolved past that, the row is either
+        // settled (we will see it next poll) or eligible for refund (the route says so).
+        const POLL_INTERVAL_MS = 2000;
+        const POLL_TIMEOUT_MS = 3 * 60 * 1000;
+        const startedAt = Date.now();
+        // A single `refundable: true` read is not trusted on its own — a transient hiccup (a
+        // slow poll, a clock edge right at the deadline) must never announce a failed transfer
+        // that is in fact about to settle. Two reads in a row is enough to call it real without
+        // meaningfully delaying the one case (a genuine settlement failure) it is for.
+        let consecutiveRefundable = 0;
+        // Set once the on-chain leg reports `settled` while the (mocked) fiat conversion is
+        // still catching up — the server writes those two facts in separate updates, so a poll
+        // can land in the gap. On-chain settlement is final at that point regardless of the fiat
+        // leg's timing, so a timeout afterward must finalize as done, never as refundable.
+        let settledPendingFiat: { settleTxHash?: string } | null = null;
+
+        while (Date.now() - startedAt < POLL_TIMEOUT_MS) {
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+
+          const statusRes = await fetch(`/api/offramp/${requestId}`, {
+          });
+          if (!statusRes.ok) continue; // transient — try again next tick
+          const statusData = await statusRes.json();
+
+          if (statusData.status === 'settled') {
+            const rawFiat = statusData.fiat_amount_idr;
+            const parsedFiat = rawFiat != null ? Number(rawFiat) : NaN;
+
+            if (statusData.fiat_status === 'completed' && Number.isFinite(parsedFiat)) {
+              setResult({
+                requestId,
+                settleTxHash: statusData.settle_tx_hash,
+                fiatAmount: parsedFiat,
+              });
+              setPhase('done');
+              return statusData;
+            }
+
+            // Chain settle is recorded but the fiat leg hasn't reported back yet — keep polling
+            // for it within the same budget instead of treating a still-null amount as final.
+            settledPendingFiat = { settleTxHash: statusData.settle_tx_hash };
+            consecutiveRefundable = 0;
+            continue;
+          }
+
+          if (statusData.refundable) {
+            consecutiveRefundable += 1;
+            if (consecutiveRefundable >= 2) {
+              setResult({ requestId, refundableAfter: statusData.rate_expires_at });
+              setPhase('needs-refund');
+              return statusData;
+            }
+          } else {
+            consecutiveRefundable = 0;
+          }
+          // Still `locked`, not yet confirmed past the rate-lock deadline twice in a row —
+          // settlement is presumably still running server-side. Keep polling.
+        }
+
+        // The chain leg already settled — the request is done regardless of whether the mocked
+        // fiat leg ever reports back, so this finalizes as done rather than needs-refund.
+        if (settledPendingFiat) {
+          setResult({ requestId, settleTxHash: settledPendingFiat.settleTxHash });
+          setPhase('done');
+          return null;
+        }
+
+        // Timed out without a definitive answer from this device — the request itself is not
+        // lost (it is still `locked` on the server either way), so this reads as refundable-soon
+        // rather than a hard failure.
+        setResult({ requestId });
+        setPhase('needs-refund');
+        return null;
       } catch (err) {
         setPhase('failed');
         const message = err instanceof Error ? err.message : 'Transfer failed';
@@ -213,7 +289,7 @@ export function useOfframp() {
         return null;
       }
     },
-    [address, getSigner, token]
+    [address, getSigner, isAuthenticated]
   );
 
   /** Claim back a lock that never settled. Only works once the rate lock has expired. */
@@ -223,7 +299,6 @@ export function useOfframp() {
       try {
         const res = await fetch(`/api/offramp/${requestId}`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Refund failed');
@@ -235,7 +310,7 @@ export function useOfframp() {
         return null;
       }
     },
-    [token]
+    [isAuthenticated]
   );
 
   return { phase, error, lockTxHash, result, recipientHash, resolveRecipient, send, requestRefund, reset };

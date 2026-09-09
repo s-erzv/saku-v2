@@ -1,0 +1,18 @@
+# Documentation and working notes stay local. They go stale faster than the code they
+# describe, and a wrong doc in a repo is read as true long after it stopped being true.
+docs/
+*/docs/
+!**/README.md
+
+# Assistant and editor scratch
+.claude/
+.cursor/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+
+.DS_Store
+
+# graphify knowledge graph output
+graphify-out/
+.graphifyignore

@@ -63,3 +63,14 @@ export function nextShare(remaining: bigint, remainingSlots: number, mode: Split
 
   return share < spendable ? share : spendable > BigInt(0) ? spendable : BigInt(1);
 }
+
+/**
+ * A USDC figure for display, from the decimal string the API returns.
+ *
+ * `formatUnits` preserves every one of USDC's six decimals, so a random share prints as
+ * "40.923833" next to a round one printing as "12.75". Money on a screen should line up.
+ */
+export function formatPacketAmount(value: string | null | undefined): string {
+  const n = Number(value)
+  return Number.isFinite(n) ? n.toFixed(2) : '0.00'
+}

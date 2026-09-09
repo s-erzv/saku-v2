@@ -11,9 +11,9 @@
 import { NextResponse } from 'next/server';
 import { formatUnits } from 'ethers';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { CHAIN_ID, USDC_DECIMALS, getSettler, getUsdcAddress, payoutUsdc } from '@/lib/chain';
-import { nextShare, type SplitMode } from '@/lib/packet';
+import type { SplitMode } from '@/lib/packet';
 import { describeDbError } from '@/lib/db-errors';
 
 interface PacketRow {
@@ -27,18 +27,10 @@ interface PacketRow {
   message: string | null;
   restricted_to_hashes: string[] | null;
   status: string;
-  expires_at: string;
+  expires_at: string | null;
 }
 
-async function requireSession(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return null;
-  try {
-    return await verifyToken(sessionToken);
-  } catch {
-    return null;
-  }
-}
+const requireSession = getSession;
 
 async function loadPacket(code: string): Promise<PacketRow | null> {
   const supabase = getSupabaseAdmin();
@@ -71,7 +63,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ code
     const claimedTotal = taken.reduce((sum, c) => sum + BigInt(c.amount), BigInt(0));
     const mine = taken.find((c) => c.claimer_id === session.userId);
 
-    const expired = new Date(packet.expires_at).getTime() < Date.now();
+    // Who wrote the note. A letter that comes out of an envelope unsigned is a strange object.
+    const { data: creator } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', packet.creator_id)
+      .maybeSingle();
+
+    // No expiry set means the sender chose not to have one.
+    const expired = packet.expires_at !== null && new Date(packet.expires_at).getTime() < Date.now();
     // Restricted packets reveal nothing beyond "not for you" — the hash list is never returned.
     const invited =
       !packet.restricted_to_hashes || packet.restricted_to_hashes.includes(session.phoneHash);
@@ -80,6 +80,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ code
       code: packet.code,
       theme: packet.theme,
       message: packet.message,
+      fromName: creator?.display_name ?? null,
       splitMode: packet.split_mode,
       slots: packet.slots,
       claimedCount: taken.length,
@@ -109,20 +110,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
 
   const { code } = await params;
 
+  const RPC_ERROR_RESPONSES: Record<string, { error: string; status: number }> = {
+    PACKET_NOT_FOUND: { error: 'Packet not found', status: 404 },
+    PACKET_NOT_OPEN: { error: 'This packet is not open', status: 400 },
+    PACKET_EXPIRED: { error: 'This packet has expired', status: 400 },
+    PACKET_NOT_INVITED: { error: 'This packet is not for your number', status: 403 },
+    PACKET_EMPTY: { error: 'This packet is empty', status: 400 },
+  };
+
   try {
-    const packet = await loadPacket(code);
-    if (!packet) return NextResponse.json({ error: 'Packet not found' }, { status: 404 });
-
-    if (packet.status !== 'open') {
-      return NextResponse.json({ error: `This packet is ${packet.status}` }, { status: 400 });
-    }
-    if (new Date(packet.expires_at).getTime() < Date.now()) {
-      return NextResponse.json({ error: 'This packet has expired' }, { status: 400 });
-    }
-    if (packet.restricted_to_hashes && !packet.restricted_to_hashes.includes(session.phoneHash)) {
-      return NextResponse.json({ error: 'This packet is not for your number' }, { status: 403 });
-    }
-
     const supabase = getSupabaseAdmin();
 
     const { data: wallet } = await supabase
@@ -136,36 +132,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       return NextResponse.json({ error: 'Finish setting up your wallet first' }, { status: 400 });
     }
 
-    const { data: claims } = await supabase
-      .from('packet_claims')
-      .select('amount')
-      .eq('packet_id', packet.id);
+    // Reserving the slot and computing the share both happen inside claim_packet() (see
+    // supabase/schema/2026-09-08b_claim_packet_atomic.sql), which locks the packet row for the
+    // duration of the decision — the race a plain SELECT-then-INSERT here used to have (two
+    // concurrent claimers both reading the same "remaining" amount and both getting paid
+    // against it) is closed by that lock, not by anything in this route.
+    const { data: claimRows, error: rpcError } = await supabase.rpc('claim_packet', {
+      p_code: code,
+      p_claimer_id: session.userId,
+      p_phone_hash: session.phoneHash,
+    });
 
-    const taken = claims ?? [];
-    if (taken.length >= packet.slots) {
-      return NextResponse.json({ error: 'This packet is empty' }, { status: 400 });
-    }
-
-    const claimedTotal = taken.reduce((sum, c) => sum + BigInt(c.amount), BigInt(0));
-    const remaining = BigInt(packet.total_amount) - claimedTotal;
-    if (remaining <= BigInt(0)) {
-      return NextResponse.json({ error: 'This packet is empty' }, { status: 400 });
-    }
-
-    const share = nextShare(remaining, packet.slots - taken.length, packet.split_mode);
-
-    // Claim the slot before paying. A second attempt by the same user collides on the unique
-    // constraint and is rejected here, which is what makes the payout below happen once.
-    const { error: claimError } = await supabase
-      .from('packet_claims')
-      .insert({ packet_id: packet.id, claimer_id: session.userId, amount: share.toString() });
-
-    if (claimError) {
-      if (claimError.code === '23505') {
+    if (rpcError) {
+      if (rpcError.code === '23505') {
         return NextResponse.json({ error: 'You already claimed this packet' }, { status: 409 });
       }
-      throw claimError;
+      const known = RPC_ERROR_RESPONSES[rpcError.message];
+      if (known) return NextResponse.json({ error: known.error }, { status: known.status });
+      throw rpcError;
     }
+
+    const claim = claimRows?.[0];
+    if (!claim) throw new Error('claim_packet returned no row');
+
+    const share = BigInt(claim.share);
+    const packetId = claim.claimed_packet_id;
+    const creatorId = claim.creator_id;
+    const packetCode = claim.packet_code;
 
     try {
       const receipt = await payoutUsdc(wallet.address, share);
@@ -173,7 +166,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       await supabase
         .from('packet_claims')
         .update({ payout_tx_hash: receipt.hash.toLowerCase() })
-        .eq('packet_id', packet.id)
+        .eq('packet_id', packetId)
         .eq('claimer_id', session.userId);
 
       await supabase.from('transactions').insert({
@@ -186,20 +179,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
         token_address: getUsdcAddress().toLowerCase(),
         amount: share.toString(),
         user_id: session.userId,
-        counterparty_user_id: packet.creator_id,
+        counterparty_user_id: creatorId,
         block_number: receipt.blockNumber,
+        context: { kind: 'packet_claim', code: packetCode },
       });
 
-      // Last slot or last unit closes the packet.
-      if (taken.length + 1 >= packet.slots || remaining - share <= BigInt(0)) {
-        await supabase.from('packets').update({ status: 'emptied' }).eq('id', packet.id);
-      }
-
+      // 'packet' is not a value `notification_type` (a Postgres enum) actually accepts — checked
+      // directly against the live database rather than assumed. The enum only has
+      // transfer_received, transfer_sent, offramp_status, and system; 'transfer_sent' is the
+      // correct one here; a packet claim is Saku paying the claimer out of the packet, from the
+      // creator's perspective.
       await supabase.from('notifications').insert({
-        user_id: packet.creator_id,
+        user_id: creatorId,
         type: 'transfer_sent',
         message: 'Someone claimed your packet.',
-        metadata: { packet_code: packet.code, amount: share.toString() },
+        metadata: {
+          packet_code: packetCode,
+          amount: share.toString(),
+          counterparty_user_id: session.userId,
+        },
       });
 
       return NextResponse.json({
@@ -213,7 +211,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       await supabase
         .from('packet_claims')
         .delete()
-        .eq('packet_id', packet.id)
+        .eq('packet_id', packetId)
         .eq('claimer_id', session.userId)
         .is('payout_tx_hash', null);
 

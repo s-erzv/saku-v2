@@ -15,7 +15,7 @@ import { useMpcWallet } from "@/hooks/useMpcWallet"
  * in the profile screen (`components/profile/wallet-security.tsx`) rather than implied.
  */
 export default function WalletSetup() {
-  const { token, refreshUser } = useAuth()
+  const { isAuthenticated, refreshUser } = useAuth()
   const { status, login } = useMpcWallet()
 
   const [busy, setBusy] = useState(false)
@@ -39,7 +39,7 @@ export default function WalletSetup() {
   // not also have to press "create wallet" — there is no decision for them to make here.
   useEffect(() => {
     if (autoCreationAttempted.current) return
-    if (!token) return
+    if (!isAuthenticated) return
     if (status !== "idle") return
 
     autoCreationAttempted.current = true
@@ -48,7 +48,7 @@ export default function WalletSetup() {
       setBusy(true)
       setError(null)
       try {
-        await login(token)
+        await login()
         await refreshUser()
       } catch (err) {
         setError(err instanceof Error ? err.message : "Wallet creation failed")
@@ -58,7 +58,7 @@ export default function WalletSetup() {
     }
 
     void create()
-  }, [token, status, login, refreshUser])
+  }, [isAuthenticated, status, login, refreshUser])
 
   if (status !== "connected") {
     return (
@@ -87,8 +87,8 @@ export default function WalletSetup() {
           <>
             <p className="mt-2 text-xs font-medium text-red-600">{error}</p>
             <button
-              disabled={busy || !token}
-              onClick={() => run(async () => { await login(token!); await refreshUser() })}
+              disabled={busy || !isAuthenticated}
+              onClick={() => run(async () => { await login(); await refreshUser() })}
               className="mt-3 w-full rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white disabled:opacity-40 active:scale-[0.99] transition-transform"
             >
               Try again

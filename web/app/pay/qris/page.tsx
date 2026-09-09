@@ -23,6 +23,7 @@ import { useOfframp } from "@/hooks/useOfframp"
 import { useWarmApproval } from "@/hooks/useWarmApproval"
 import { keccak256, toUtf8Bytes } from "ethers"
 import { CONTRACTS, explorerTxUrl } from "@/lib/config"
+import { offrampFee } from "@/lib/fees"
 
 interface QrisInfo {
   merchant: { name: string | null; city: string | null; id: string | null; acquirer: string | null }
@@ -31,6 +32,7 @@ interface QrisInfo {
   dynamic: boolean
   usdcNeeded: number | null
   feeUsdc: number | null
+  netUsdc: number | null
   fxRate: number
   symbol: string
   locale: string
@@ -39,7 +41,7 @@ interface QrisInfo {
 
 export default function PayQrisPage() {
   const router = useRouter()
-  const { user, wallet, token, isLoading, isAuthenticated } = useAuth()
+  const { user, wallet, isLoading, isAuthenticated } = useAuth()
   const { address, status } = useMpcWallet()
   const { phase, error: sendError, lockTxHash, result, send } = useOfframp()
 
@@ -62,7 +64,7 @@ export default function PayQrisPage() {
   }, [phase, refresh])
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
 
     const payload = (() => {
       try {
@@ -81,7 +83,7 @@ export default function PayQrisPage() {
       try {
         const res = await fetch("/api/qris/parse", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ payload }),
         })
         const data = await res.json()
@@ -91,7 +93,7 @@ export default function PayQrisPage() {
         setLoadError(err instanceof Error ? err.message : "Could not read that code")
       }
     })()
-  }, [token])
+  }, [isAuthenticated])
 
   const formatFiat = (value: number) =>
     info
@@ -126,12 +128,11 @@ export default function PayQrisPage() {
             )}
           </div>
 
-          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-left flex gap-2.5">
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 flex gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
             <p className="text-[11px] leading-relaxed text-amber-900">
-              The on-chain lock and swap are real and verifiable on BscScan. Crediting the
-              merchant&apos;s QRIS account is <span className="font-bold">simulated</span> — this
-              merchant did not receive money.
+              The swap is real on-chain. Paying the merchant is{" "}
+              <span className="font-bold">simulated</span> — they did not receive money.
             </p>
           </div>
 
@@ -182,9 +183,15 @@ export default function PayQrisPage() {
     )
   }
 
-  // A static merchant code carries no amount, so the payer enters one — as at the counter.
-  const usdcToSend = info.usdcNeeded ?? Number(manualAmount)
-  const fiatToPay = info.amount ?? Number(manualAmount) * info.fxRate
+  // A static merchant code carries no amount, so the payer enters one — as at the counter. Priced
+  // through the same fee-on-top formula as a dynamic code's amount, just computed client-side
+  // since there is no server round-trip as the payer types.
+  const manualAmountNum = Number(manualAmount)
+  const manualFee = manualAmountNum > 0 ? offrampFee(manualAmountNum) : null
+  const usdcToSend = info.usdcNeeded ?? manualFee?.grossUsdc ?? manualAmountNum
+  const netUsdc = info.netUsdc ?? manualAmountNum
+  const feeUsdc = info.feeUsdc ?? manualFee?.feeUsdc ?? null
+  const fiatToPay = info.amount ?? manualAmountNum * info.fxRate
   const canPay =
     status === "connected" &&
     Number.isFinite(usdcToSend) &&
@@ -251,27 +258,27 @@ export default function PayQrisPage() {
             )}
           </div>
 
-          {info.usdcNeeded !== null && (
+          {usdcToSend > 0 && (
             <div className="pt-3 border-t border-black/8 space-y-1.5 text-sm">
-              <div className="flex justify-between text-black/45">
-                <span>You send</span>
-                <span className="tabular-nums font-bold text-black/70">{info.usdcNeeded} USDC</span>
-              </div>
-              {info.feeUsdc !== null && (
+              {feeUsdc !== null && (
                 <div className="flex justify-between text-black/45">
-                  <span>Fee</span>
-                  <span className="tabular-nums">{info.feeUsdc} USDC</span>
+                  <span>Fee (added on top)</span>
+                  <span className="tabular-nums">+{feeUsdc} USDC</span>
                 </div>
               )}
+              <div className="flex justify-between text-black/45">
+                <span>You pay</span>
+                <span className="tabular-nums font-bold text-black/70">{usdcToSend} USDC</span>
+              </div>
             </div>
           )}
         </div>
 
-        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex gap-2.5">
+        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 flex gap-2.5">
           <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
           <p className="text-[11px] leading-relaxed text-amber-900">
-            Saku is not a licensed QRIS acquirer. The lock and swap happen on BSC Testnet for
-            real; crediting this merchant is <span className="font-bold">simulated</span>.
+            Saku is not a QRIS acquirer — crediting this merchant is{" "}
+            <span className="font-bold">simulated</span>.
           </p>
         </div>
 
@@ -287,7 +294,7 @@ export default function PayQrisPage() {
             // The merchant is identified by their NMID; it is hashed into the same recipient
             // field the escrow uses for a phone, so the lock carries who was paid.
             const merchantRef = info.merchant.id ?? info.merchant.name ?? "unknown-merchant"
-            void send(String(usdcToSend), "bank", merchantRefHash(merchantRef))
+            void send(String(netUsdc), String(usdcToSend), "bank", merchantRefHash(merchantRef))
           }}
           disabled={!canPay || busy}
           className="w-full py-4 bg-black text-white rounded-2xl font-bold shadow-lg disabled:opacity-25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"

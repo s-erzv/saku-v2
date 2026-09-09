@@ -1,12 +1,37 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { NextResponse } from "next/server";
+/**
+ * Receipt scan for split-bill (PRD non-goal — a v1 feature, kept per the user's explicit choice
+ * to treat the PRD as a minimum baseline rather than a scope limiter).
+ *
+ * This existed in the codebase with none of v2's routing conventions: no session check, so
+ * anyone who found the URL could burn through GEMINI_API_KEY's quota for free. Fixed here, not
+ * rewritten — the Gemini call and prompt are unchanged.
+ */
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { NextResponse } from 'next/server';
+import { getSession, unauthorized } from '@/lib/session';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
+import { clientKey } from '@/lib/request-meta';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
+  const session = await getSession(request);
+  if (!session) return unauthorized();
+
+  if (!(await checkRateLimit(clientKey(request, 'ocr'), RATE_LIMITS.IP_BASED)).allowed) {
+    return NextResponse.json({ error: 'Too many scans. Try again shortly.' }, { status: 429 });
+  }
+
   try {
-    const { image } = await req.json();
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const { image } = await request.json();
+    if (typeof image !== 'string' || !image.startsWith('data:image/')) {
+      return NextResponse.json({ error: 'Expected a base64 image data URL' }, { status: 400 });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `
       Analyze this receipt image. Extract these details:
@@ -28,18 +53,20 @@ export async function POST(req: Request) {
       - Return ONLY the raw JSON.
     `;
 
-    const base64Content = image.split(",")[1];
+    const [, mimeType, base64Content] = image.match(/^data:(image\/\w+);base64,(.+)$/) ?? [];
+    if (!base64Content) return NextResponse.json({ error: 'Malformed image data' }, { status: 400 });
+
     const result = await model.generateContent([
       prompt,
-      { inlineData: { data: base64Content, mimeType: "image/jpeg" } },
+      { inlineData: { data: base64Content, mimeType: mimeType || 'image/jpeg' } },
     ]);
 
-    const response = await result.response;
-    let text = response.text().trim().replace(/```json|```/g, "");
-    
+    const text = result.response.text().trim().replace(/```json|```/g, '');
     const data = JSON.parse(text);
+
     return NextResponse.json({ success: true, ...data });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not read that receipt';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

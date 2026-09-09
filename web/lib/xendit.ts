@@ -20,6 +20,23 @@ function getSecretKey(): string {
   return key;
 }
 
+/**
+ * Whether this Xendit account actually takes money.
+ *
+ * Xendit issues `xnd_development_*` keys against a staging ledger — those invoices are play
+ * money on a sandbox checkout, nothing leaves anyone's account. `xnd_production_*` keys are the
+ * real thing. The distinction decides whether Saku owes the user a warning: charging real money
+ * for a token that only exists on a testnet is a thing someone must be told before they pay,
+ * and cluttering a sandbox demo with that same warning is just noise about a transaction that
+ * is not happening.
+ *
+ * Fails closed. An unrecognised key shape is treated as real, because the cost of wrongly
+ * staying quiet is far higher than the cost of a warning nobody needed.
+ */
+export function chargesRealMoney(): boolean {
+  return !process.env.XENDIT_SECRET_KEY?.trim().startsWith('xnd_development_');
+}
+
 /** Xendit authenticates with HTTP Basic: secret key as username, empty password. */
 function authHeader(): string {
   return `Basic ${Buffer.from(`${getSecretKey()}:`).toString('base64')}`;

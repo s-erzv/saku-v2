@@ -2,25 +2,21 @@
 
 /**
  * Recent activity, in the v1 shape: a card, a row per transaction, direction shown as sign and
- * colour. Every row here corresponds to a real BSC Testnet transaction and links to it.
+ * colour. Every row here corresponds to a real BSC Testnet transaction.
+ *
+ * Tapping a row hands off to History with that receipt already open (`/transactions?tx=…`)
+ * rather than opening a modal over the home screen. Closing the receipt then leaves the user in
+ * the list the transaction belongs to, with the rest of their history right there — closing it
+ * on top of Home used to drop them back to a screen showing five rows and no way onward.
  */
 
-import { ArrowDownLeft, ArrowUpRight, ExternalLink, Loader2, Receipt } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowDownLeft, ArrowUpRight, Loader2, Receipt } from "lucide-react"
 import { formatUnits } from "ethers"
 import { useTransactions, type SakuTransaction } from "@/hooks/useTransactions"
-import { explorerTxUrl } from "@/lib/config"
+import { describeTransaction } from "@/lib/receipt-content"
 
 const USDC_DECIMALS = 6
-
-const TYPE_LABEL: Record<SakuTransaction["type"], string> = {
-  transfer: "Transfer",
-  topup: "Top Up",
-  withdraw: "Withdraw",
-  qr_payment: "QR Pay",
-  offramp_lock: "Sent to e-wallet",
-  offramp_settle: "Off-ramp settled",
-  offramp_refund: "Off-ramp refunded",
-}
 
 function formatAmount(amount: string | null) {
   if (!amount) return "0.00"
@@ -40,6 +36,7 @@ function formatWhen(iso: string) {
 }
 
 export default function RecentTransactions() {
+  const router = useRouter()
   const { transactions, isLoading } = useTransactions(5)
 
   return (
@@ -63,13 +60,12 @@ export default function RecentTransactions() {
           <div className="space-y-2">
             {transactions.map((tx) => {
               const incoming = tx.direction === "in"
+              const { label } = describeTransaction(tx)
               return (
-                <a
+                <button
                   key={tx.txHash}
-                  href={explorerTxUrl(tx.txHash)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group flex items-center gap-3 p-3 rounded-2xl hover:bg-white/60 transition-colors"
+                  onClick={() => router.push(`/transactions?tx=${tx.txHash}`)}
+                  className="group w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/60 transition-colors text-left"
                 >
                   <div
                     className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
@@ -80,8 +76,15 @@ export default function RecentTransactions() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-black/80 truncate">{TYPE_LABEL[tx.type]}</p>
-                    <p className="text-[11px] text-black/40">{formatWhen(tx.occurredAt)}</p>
+                    {/* The name is what a person recognises; the type moves down a line rather
+                        than away, since "Sarah" alone doesn't say whether it was a QR pay. */}
+                    <p className="text-sm font-bold text-black/80 truncate">
+                      {tx.counterpartyName ?? label}
+                    </p>
+                    <p className="text-[11px] text-black/40 truncate">
+                      {tx.counterpartyName ? `${label} · ` : ""}
+                      {formatWhen(tx.occurredAt)}
+                    </p>
                   </div>
 
                   <div className="text-right shrink-0">
@@ -89,10 +92,10 @@ export default function RecentTransactions() {
                       {incoming ? "+" : "−"}{formatAmount(tx.amount)}
                     </p>
                     <p className="text-[10px] font-semibold text-black/30 flex items-center justify-end gap-1">
-                      USDC <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      USDC <Receipt className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </p>
                   </div>
-                </a>
+                </button>
               )
             })}
           </div>

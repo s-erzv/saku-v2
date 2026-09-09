@@ -13,29 +13,37 @@
 import { NextResponse } from 'next/server';
 import { formatUnits, parseUnits } from 'ethers';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { CHAIN_ID, USDC_DECIMALS, getUsdcAddress } from '@/lib/chain';
 import { hashPhone, InvalidPhoneNumberError } from '@/lib/phone';
 import { describeDbError } from '@/lib/db-errors';
 
+/** `lib/phone.ts` emits keccak256 hex; anything else was not produced by this app. */
+const PHONE_HASH = /^0x[0-9a-fA-F]{64}$/;
+
 const MAX_PARTICIPANTS = 30;
 
 interface ParticipantInput {
-  phone: string;
+  /** A typed-in number. Absent when the participant came from the address book. */
+  phone?: string;
+  /**
+   * A saved contact's phone hash. The address book holds a label and a hash server-side and the
+   * number only in the cache of whichever device saved it, so requiring a number here would make
+   * contacts unusable for this from every other device.
+   */
+  phoneHash?: string;
   label?: string;
   /** Optional explicit share; when absent the remainder is split evenly. */
   amount?: number;
+  /**
+   * This person's slice of the receipt, in the receipt's own currency — what they ordered, their
+   * share of tax and service. Stored verbatim for the bill screen to explain `amount` with; it
+   * is never used to compute anything, so a client that gets it wrong misleads only itself.
+   */
+  breakdown?: unknown;
 }
 
-async function requireSession(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return null;
-  try {
-    return await verifyToken(sessionToken);
-  } catch {
-    return null;
-  }
-}
+const requireSession = getSession;
 
 export async function GET(request: Request) {
   const session = await requireSession(request);
@@ -59,6 +67,26 @@ export async function GET(request: Request) {
         .limit(30),
     ]);
 
+    // One lookup for every name this page needs, not one per bill.
+    const creatorIds = [
+      ...new Set(
+        (owed ?? [])
+          .map((s) => (s.split_bills as unknown as { creator_id?: string })?.creator_id)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
+
+    const creatorNames = new Map<string, string>();
+    if (creatorIds.length > 0) {
+      const { data: creators } = await supabase
+        .from('users')
+        .select('id, display_name')
+        .in('id', creatorIds);
+      for (const user of creators ?? []) {
+        if (user.display_name) creatorNames.set(user.id, user.display_name);
+      }
+    }
+
     return NextResponse.json({
       created: (created ?? []).map((b) => ({
         id: b.id,
@@ -71,7 +99,12 @@ export async function GET(request: Request) {
         // A share whose bill was deleted is not something to render.
         .filter((s) => s.split_bills)
         .map((s) => {
-          const bill = s.split_bills as unknown as { id: string; title: string; created_at: string };
+          const bill = s.split_bills as unknown as {
+            id: string;
+            title: string;
+            creator_id: string;
+            created_at: string;
+          };
           return {
             shareId: s.id,
             billId: s.bill_id,
@@ -79,6 +112,8 @@ export async function GET(request: Request) {
             amount: formatUnits(s.amount, USDC_DECIMALS),
             status: s.status,
             createdAt: bill.created_at,
+            // Who is asking. A bill that arrives without a name is just a number demanding money.
+            fromName: creatorNames.get(bill.creator_id) ?? null,
           };
         }),
     });
@@ -124,12 +159,16 @@ export async function POST(request: Request) {
 
     // Hash every participant, rejecting the whole bill if any number is unusable — a bill with
     // a silently dropped participant is worse than one that failed to save.
-    let hashed: { hash: string; label?: string; amount?: number }[];
+    let hashed: { hash: string; label?: string; amount?: number; breakdown?: unknown }[];
     try {
       hashed = participants.map((p) => ({
-        hash: hashPhone(p.phone, body.countryCode || '62'),
+        hash:
+          typeof p.phoneHash === 'string' && PHONE_HASH.test(p.phoneHash)
+            ? p.phoneHash
+            : hashPhone(String(p.phone ?? ''), body.countryCode || '62'),
         label: typeof p.label === 'string' ? p.label.slice(0, 64) : undefined,
         amount: Number.isFinite(Number(p.amount)) && Number(p.amount) > 0 ? Number(p.amount) : undefined,
+        breakdown: p.breakdown ?? null,
       }));
     } catch (error) {
       if (error instanceof InvalidPhoneNumberError) {
@@ -162,6 +201,7 @@ export async function POST(request: Request) {
         return {
           hash: p.hash,
           label: p.label,
+          breakdown: p.breakdown,
           units: parseUnits(p.amount.toFixed(USDC_DECIMALS), USDC_DECIMALS),
         };
       }
@@ -173,7 +213,7 @@ export async function POST(request: Request) {
           : remainderUnits / BigInt(evenCount);
       assignedEven += units;
 
-      return { hash: p.hash, label: p.label, units };
+      return { hash: p.hash, label: p.label, breakdown: p.breakdown, units };
     });
 
     const { data: bill, error: billError } = await supabase
@@ -184,6 +224,9 @@ export async function POST(request: Request) {
         title,
         total_amount: totalUnits.toString(),
         token_address: getUsdcAddress().toLowerCase(),
+        // The receipt behind the total: line items, who had what, tax and service. Explains the
+        // number; never used to derive it.
+        breakdown: body.breakdown ?? null,
       })
       .select('id, title')
       .single();
@@ -206,6 +249,7 @@ export async function POST(request: Request) {
         participant_user_id: byHash.get(s.hash) ?? null,
         label: s.label ?? null,
         amount: s.units.toString(),
+        breakdown: s.breakdown ?? null,
       }))
     );
 
@@ -215,7 +259,9 @@ export async function POST(request: Request) {
       throw sharesError;
     }
 
-    // Tell the ones who are already here.
+    // Tell the ones who are already here — each with their own share, so the notification says
+    // what they owe rather than only that a bill exists.
+    const unitsByHash = new Map(shares.map((s) => [s.hash, s.units.toString()]));
     const notifiable = (knownUsers ?? []).filter((u) => u.id !== session.userId);
     if (notifiable.length > 0) {
       await supabase.from('notifications').insert(
@@ -223,7 +269,7 @@ export async function POST(request: Request) {
           user_id: u.id,
           type: 'system' as const,
           message: `You were added to "${title}".`,
-          metadata: { bill_id: bill.id },
+          metadata: { bill_id: bill.id, title, amount: unitsByHash.get(u.phone_hash) ?? null },
         }))
       );
     }

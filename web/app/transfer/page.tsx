@@ -10,13 +10,22 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, CheckCircle, ExternalLink, Loader2, Smartphone, User, Wallet } from "lucide-react"
+import { parseUnits } from "ethers"
+import { ArrowLeft, ArrowLeftRight, CheckCircle, ExternalLink, Loader2, Receipt, Smartphone, User, Wallet } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
 import { useTransfer } from "@/hooks/useTransfer"
+import { useCurrencyToggleAmount } from "@/hooks/useCurrencyToggleAmount"
+import { type SakuTransaction } from "@/hooks/useTransactions"
+import { formatUsdc, transferFee } from "@/lib/fees"
 import { CONTRACTS, explorerTxUrl } from "@/lib/config"
 import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
+import ContactPicker from "@/components/shared/contact-picker"
+import ReceiptModal from "@/components/transactions/receipt-modal"
+import { rememberRecentPhone } from "@/lib/recent-recipients"
+import { formatCurrency } from "@/lib/currency"
+import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
 
 type Step = "receiver" | "amount" | "review"
 
@@ -31,9 +40,11 @@ export default function TransferPage() {
   // whether their recipient has Saku before they can pick a screen. They usually do not — so
   // the destination is a choice inside one flow, and the e-wallet path hands off to /offramp.
   const [destination, setDestination] = useState<"saku" | "ewallet">("saku")
-  const [countryCode, setCountryCode] = useState("+62")
+  const [countryCode, setCountryCode] = useRecipientCountryCode()
   const [phone, setPhone] = useState("")
-  const [amount, setAmount] = useState("")
+  const amountField = useCurrencyToggleAmount(isAuthenticated)
+  const amount = amountField.amountUsdc
+  const [showReceipt, setShowReceipt] = useState(false)
 
   const walletAddress = address ?? wallet?.address ?? null
   const { balances, refresh } = useTokenBalances(walletAddress)
@@ -44,7 +55,10 @@ export default function TransferPage() {
   }, [isLoading, isAuthenticated, router])
 
   useEffect(() => {
-    if (phase === "done") void refresh()
+    if (phase !== "done") return
+    void refresh()
+    if (phone.length >= 8) rememberRecentPhone(user?.phone_hash, { countryCode, phone })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, refresh])
 
   if (isLoading) {
@@ -58,6 +72,29 @@ export default function TransferPage() {
   if (!user) return null
 
   if (phase === "done") {
+    const receiptTx: SakuTransaction | null = txHash
+      ? {
+          txHash,
+          type: "transfer",
+          status: "confirmed",
+          amount: parseUnits(amount || "0", 6).toString(),
+          tokenAddress: CONTRACTS.USDC,
+          occurredAt: new Date().toISOString(),
+          direction: "out",
+          fromAddress: walletAddress,
+          toAddress: recipient?.address ?? null,
+          // Already resolved by `useTransfer` — no reason to make the receipt wait for a
+          // /api/transactions round-trip to learn the name it was just sent to.
+          counterpartyName: recipient?.displayName ?? null,
+          counterpartyIsUser: true,
+          context: null,
+          feeAmount: parseUnits(
+            transferFee(Number(amount || 0)).feeUsdc.toFixed(6),
+            6
+          ).toString(),
+        }
+      : null
+
     return (
       <div className="min-h-dvh bg-white flex items-center justify-center p-6 font-sans">
         <div className="w-full max-w-sm text-center space-y-6 animate-in zoom-in-95 duration-300">
@@ -82,13 +119,25 @@ export default function TransferPage() {
             </a>
           )}
 
-          <button
-            onClick={() => router.push("/home")}
-            className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-all"
-          >
-            Back to Home
-          </button>
+          <div className="space-y-2">
+            {receiptTx && (
+              <button
+                onClick={() => setShowReceipt(true)}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-black/12 text-sm font-bold hover:border-black/25 transition-colors"
+              >
+                <Receipt className="w-4 h-4" /> View receipt
+              </button>
+            )}
+            <button
+              onClick={() => router.push("/home")}
+              className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-all"
+            >
+              Back to Home
+            </button>
+          </div>
         </div>
+
+        {showReceipt && receiptTx && <ReceiptModal transaction={receiptTx} onClose={() => setShowReceipt(false)} />}
       </div>
     )
   }
@@ -164,6 +213,7 @@ export default function TransferPage() {
                   <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
                     Recipient number
                   </label>
+                  <ContactPicker onPick={(cc, ph) => { setCountryCode(cc); setPhone(ph) }} />
                   <div className="relative">
                     <CountryCodeDropdown onSelect={setCountryCode} selectedCode={countryCode} />
                     <input
@@ -224,14 +274,30 @@ export default function TransferPage() {
                   <div className="flex items-center gap-2 border-2 border-transparent focus-within:border-black rounded-2xl bg-[#F9EFE5] px-4 py-3 transition-all">
                     <input
                       inputMode="decimal"
-                      value={amount}
+                      value={amountField.displayValue}
                       autoFocus
-                      onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                      onChange={(e) => amountField.setDisplayValue(e.target.value)}
                       placeholder="0.00"
                       className="flex-1 bg-transparent outline-none text-2xl font-black tabular-nums"
                     />
-                    <span className="text-lg font-bold text-black/45">USDC</span>
+                    <button
+                      type="button"
+                      onClick={amountField.toggleUnit}
+                      disabled={!amountField.currency}
+                      className="flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full bg-black/[0.06] hover:bg-black/10 active:scale-95 transition-all disabled:opacity-40 disabled:active:scale-100"
+                    >
+                      <ArrowLeftRight className="w-3 h-3 text-black/40" />
+                      <span className="text-sm font-black text-black/70">{amountField.unitLabel}</span>
+                    </button>
                   </div>
+                  {amountField.currency && Number(amount) > 0 && (
+                    <p className="text-xs font-semibold text-black/40">
+                      ≈{" "}
+                      {amountField.unit === "usdc"
+                        ? formatCurrency(Number(amount) * amountField.currency.fxRate, amountField.currency)
+                        : `${amount} USDC`}
+                    </p>
+                  )}
                   {Number(amount) > Number(usdc?.formatted ?? 0) && (
                     <p className="text-xs font-medium text-red-600">Not enough balance.</p>
                   )}
@@ -264,9 +330,27 @@ export default function TransferPage() {
                     <span className="text-black/45">Number</span>
                     <span className="font-bold">{countryCode}{phone}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-black/45">Network</span>
-                    <span className="font-bold">BNB Testnet</span>
+                  {/* Shown before signing, not only on the receipt. A fee the user first meets
+                      after paying is a fee designed not to be noticed. */}
+                  <div className="pt-3 mt-1 border-t border-black/5 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-black/45">They receive</span>
+                      <span className="font-bold tabular-nums">{formatUsdc(Number(amount || 0))} USDC</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-black/45">
+                        Platform fee ({(transferFee(1).bps / 100).toFixed(2)}%)
+                      </span>
+                      <span className="font-bold tabular-nums">
+                        +{formatUsdc(transferFee(Number(amount || 0)).feeUsdc)} USDC
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm pt-1 border-t border-black/5">
+                      <span className="font-bold">You pay</span>
+                      <span className="font-black tabular-nums">
+                        {formatUsdc(transferFee(Number(amount || 0)).grossUsdc)} USDC
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -280,9 +364,6 @@ export default function TransferPage() {
                   {phase === "sending" && <Loader2 className="w-4 h-4 animate-spin" />}
                   {phase === "sending" ? "Signing & sending…" : "Confirm & Send"}
                 </button>
-                <p className="text-[11px] text-center text-black/45">
-                  Signed on your device through MPC. Saku never holds your key.
-                </p>
               </div>
             )}
           </>

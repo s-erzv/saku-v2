@@ -1,138 +1,83 @@
 /**
- * Rate Limiter Utility
- * Implements in-memory rate limiting with sliding window
- * Upgrade to Redis for production scalability
+ * Rate limiting that survives the platform it runs on.
+ *
+ * This was a `Map` in module scope with a comment saying "upgrade to Redis for production
+ * scalability". On serverless that is not a scalability note, it is a correctness one: each
+ * instance has its own empty Map, every cold start resets it, and concurrent instances never see
+ * each other's counts. Anything relying on it alone — which was `/api/mpc/sign`,
+ * `/api/mpc/provision`, `/api/transfer/resolve`, `/api/ocr`, `/api/topup/create-payment` — was
+ * effectively unlimited. `/api/request-otp` was the exception, and only because it also kept a
+ * real counter in the database.
+ *
+ * The counter now lives in Postgres, incremented by `saku_rate_limit_hit` in a single statement
+ * so two simultaneous requests cannot both read the same number. See
+ * `db/migrations/20260910_session_and_signing_security.sql`.
  */
 
-interface RateLimitConfig {
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
+
+export interface RateLimitConfig {
   maxRequests: number;
   windowMs: number;
 }
 
-interface RateLimitInfo {
-  count: number;
-  resetTime: number;
-}
-
-class RateLimiter {
-  private requests = new Map<string, RateLimitInfo>();
-
-  /**
-   * Check if request is allowed based on rate limit config
-   * @param identifier - Unique identifier (phone, IP, etc.)
-   * @param config - Rate limit configuration
-   * @returns Rate limit status
-   */
-  check(identifier: string, config: RateLimitConfig): {
-    allowed: boolean;
-    remaining: number;
-    resetTime: number;
-  } {
-    const now = Date.now();
-    const existing = this.requests.get(identifier);
-
-    // If no existing record or window expired, create new
-    if (!existing || now > existing.resetTime) {
-      const resetTime = now + config.windowMs;
-      this.requests.set(identifier, {
-        count: 1,
-        resetTime
-      });
-
-      return {
-        allowed: true,
-        remaining: config.maxRequests - 1,
-        resetTime
-      };
-    }
-
-    // Check if limit exceeded
-    if (existing.count >= config.maxRequests) {
-      return {
-        allowed: false,
-        remaining: 0,
-        resetTime: existing.resetTime
-      };
-    }
-
-    // Increment counter
-    existing.count++;
-    this.requests.set(identifier, existing);
-
-    return {
-      allowed: true,
-      remaining: config.maxRequests - existing.count,
-      resetTime: existing.resetTime
-    };
-  }
-
-  /**
-   * Reset rate limit for specific identifier
-   * @param identifier - Unique identifier to reset
-   */
-  reset(identifier: string): void {
-    this.requests.delete(identifier);
-  }
-
-  /**
-   * Clean up expired entries (call periodically to prevent memory leak)
-   */
-  cleanup(): void {
-    const now = Date.now();
-    for (const [key, value] of this.requests.entries()) {
-      if (now > value.resetTime) {
-        this.requests.delete(key);
-      }
-    }
-  }
-
-  /**
-   * Get current count for identifier
-   * @param identifier - Unique identifier
-   * @returns Current count or 0 if not found
-   */
-  getCount(identifier: string): number {
-    const record = this.requests.get(identifier);
-    if (!record) return 0;
-
-    // Check if expired
-    if (Date.now() > record.resetTime) {
-      this.requests.delete(identifier);
-      return 0;
-    }
-
-    return record.count;
-  }
-}
-
-// Export singleton instance
-export const rateLimiter = new RateLimiter();
-
-// Run cleanup every 10 minutes to prevent memory leak
-if (typeof window === 'undefined') {
-  setInterval(() => {
-    rateLimiter.cleanup();
-  }, 10 * 60 * 1000);
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: Date | null;
 }
 
 /**
- * Rate limit configurations
+ * Count one request against `identifier`.
+ *
+ * Fails **open** on a database error, and this is the one place in the security work here where
+ * that is the right call: a limiter is a shield in front of a route that has its own
+ * authentication and its own authorization. If Postgres is unreachable, refusing every request
+ * turns a limiter outage into a full outage, while allowing them degrades to the protection the
+ * route had anyway. The spending cap in `lib/spend-limits.ts` makes the opposite choice, because
+ * there the check *is* the control rather than a shield in front of one.
+ */
+export async function checkRateLimit(
+  identifier: string,
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
+  try {
+    const { data, error } = await getSupabaseAdmin().rpc('saku_rate_limit_hit', {
+      p_bucket: identifier,
+      p_window_ms: config.windowMs,
+      p_max: config.maxRequests,
+    });
+
+    if (error) throw error;
+
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error('saku_rate_limit_hit returned no row');
+
+    return {
+      allowed: Boolean(row.allowed),
+      remaining: Number(row.remaining ?? 0),
+      resetAt: row.reset_at ? new Date(row.reset_at) : null,
+    };
+  } catch (error) {
+    console.error('[rate-limiter] bucket check failed, allowing request:', error);
+    return { allowed: true, remaining: 0, resetAt: null };
+  }
+}
+
+/**
+ * Rate limit configurations.
+ *
+ * `SIGNING` is deliberately far tighter than the rest. Every other route costs Saku a database
+ * query; that one costs a signature against someone's wallet, and a legitimate user produces a
+ * handful an hour, not dozens a minute.
  */
 export const RATE_LIMITS = {
-  OTP_REQUEST: {
-    maxRequests: 3,
-    windowMs: 5 * 60 * 1000 // 5 minutes
-  },
-  OTP_VERIFY: {
-    maxRequests: 3,
-    windowMs: 5 * 60 * 1000 // 5 minutes
-  },
-  IP_BASED: {
-    maxRequests: 20,
-    windowMs: 60 * 1000 // 1 minute
-  },
-  GENERAL_API: {
-    maxRequests: 100,
-    windowMs: 60 * 1000 // 1 minute
-  }
+  OTP_REQUEST: { maxRequests: 3, windowMs: 5 * 60 * 1000 },
+  OTP_VERIFY: { maxRequests: 10, windowMs: 5 * 60 * 1000 },
+  IP_BASED: { maxRequests: 20, windowMs: 60 * 1000 },
+  GENERAL_API: { maxRequests: 100, windowMs: 60 * 1000 },
+  /** Per user, not per IP — an attacker's IP is theirs to change, the victim's account is not. */
+  SIGNING: { maxRequests: 12, windowMs: 60 * 1000 },
+  /** Contact-existence lookups. Enumerating who is on Saku should be slow and countable. */
+  RESOLVE: { maxRequests: 15, windowMs: 60 * 1000 },
 } as const;

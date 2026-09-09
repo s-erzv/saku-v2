@@ -37,6 +37,55 @@ const CURRENCY_BY_COUNTRY: Record<string, CurrencyInfo> = {
 
 export const DEFAULT_COUNTRY = 'ID';
 
+/** Currency code -> info, for the cases that start from the money rather than the country. */
+const CURRENCY_BY_CODE: Record<string, CurrencyInfo> = Object.fromEntries(
+  Object.values(CURRENCY_BY_COUNTRY).map((c) => [c.code, c])
+);
+
+/**
+ * Which currencies the payment gateway can actually put on a charge.
+ *
+ * This is a different question from "which currencies does Saku support", and conflating the
+ * two is what produced a Malaysian user being quoted a price in MYR, shown a full fee
+ * breakdown, and only then hitting a raw gateway error at checkout: `currency MYR is not
+ * configured in your settings yet`. Xendit calls this the *presentment* currency, and it is
+ * fixed by the country the merchant account is incorporated in — an Indonesia-scoped account
+ * can only present IDR, no matter how many currency balances it opens. That is an account
+ * question with Xendit, not something any amount of code can arrange.
+ *
+ * So Saku prices in the user's own currency and charges in one this account can actually bill,
+ * showing both before the user commits. When MYR is eventually enabled, add it here and the
+ * conversion stops happening on its own — no code change.
+ *
+ * Order matters: the first entry is the fallback everything unsupported is charged in.
+ */
+const DEFAULT_PRESENTMENT_CURRENCIES = ['IDR'];
+
+function presentmentCurrencies(): string[] {
+  const configured = process.env.XENDIT_PRESENTMENT_CURRENCIES?.trim()
+    .split(',')
+    .map((code) => code.trim().toUpperCase())
+    .filter((code) => code in CURRENCY_BY_CODE);
+
+  return configured?.length ? configured : DEFAULT_PRESENTMENT_CURRENCIES;
+}
+
+/** Whether the gateway can bill this currency directly. */
+export function isChargeableCurrency(code: string): boolean {
+  return presentmentCurrencies().includes(code.toUpperCase());
+}
+
+/**
+ * The currency the gateway will actually be asked to charge for a price quoted in `display`.
+ *
+ * Returns `display` untouched whenever the account can bill it, which is the only branch that
+ * runs once Xendit enables the rest.
+ */
+export function chargeCurrencyFor(display: CurrencyInfo): CurrencyInfo {
+  if (isChargeableCurrency(display.code)) return display;
+  return CURRENCY_BY_CODE[presentmentCurrencies()[0]] ?? CURRENCY_BY_COUNTRY[DEFAULT_COUNTRY];
+}
+
 export function isSupportedCountry(code: string | null | undefined): boolean {
   return !!code && code.toUpperCase() in CURRENCY_BY_COUNTRY;
 }
@@ -67,6 +116,31 @@ export function countryFromDialCode(dialCode: string | null | undefined): string
   // stored value never implies support that does not exist.
   return match && isSupportedCountry(match.code) ? match.code : DEFAULT_COUNTRY;
 }
+
+/**
+ * ISO country -> dialing code, the inverse of {@link countryFromDialCode}.
+ *
+ * Every screen that asks for someone else's phone number opened on `+62`, hardcoded, no matter
+ * who was looking at it. A Malaysian sending money to another Malaysian had to change the
+ * country on every single transfer, split bill and cash-out, and forgetting to does not fail
+ * loudly — it silently resolves to a different person's identity, because the dialing code is
+ * part of what gets hashed. The sender's own country is the only sane default: people
+ * overwhelmingly pay people in the country they live in.
+ *
+ * Unlike `countryFromDialCode` this is not restricted to supported countries. It answers "what
+ * prefix does this country dial with", which is true regardless of whether Saku can charge
+ * there, and the account's stored country is already constrained to the supported set anyway.
+ */
+export function dialCodeFromCountry(countryCode: string | null | undefined): string {
+  const iso = (countryCode ?? '').toUpperCase();
+  const match = (countries as { name: string; dial_code: string; code: string }[]).find(
+    (entry) => entry.code === iso
+  );
+  return match?.dial_code ?? DEFAULT_DIAL_CODE;
+}
+
+/** Where the country pickers start before an account is known, and if one is ever unmapped. */
+export const DEFAULT_DIAL_CODE = '+62';
 
 /** Round to the currency's real precision — what the gateway will be asked to charge. */
 export function roundToCurrency(amount: number, currency: CurrencyInfo): number {

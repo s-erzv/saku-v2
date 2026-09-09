@@ -38,7 +38,7 @@ const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 180_000;
 
 export function useTopup() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [state, setState] = useState<TopupState>({
     phase: 'idle',
     orderId: null,
@@ -59,7 +59,6 @@ export function useTopup() {
       while (Date.now() < deadline) {
         try {
           const res = await fetch(`/api/topup/status/${orderId}`, {
-            headers: { Authorization: `Bearer ${token}` },
           });
           const data = await res.json();
 
@@ -88,13 +87,13 @@ export function useTopup() {
         error: 'Payment received, but the balance has not arrived yet. Check again from Home in a moment.',
       }));
     },
-    [token]
+    [isAuthenticated]
   );
 
   /** Create the invoice and send the browser to the gateway. Does not return on success. */
   const startTopup = useCallback(
     async (amountUsdc: number) => {
-      if (!token) {
+      if (!isAuthenticated) {
         setState((s) => ({ ...s, phase: 'failed', error: 'Your session expired — please sign in again.' }));
         return;
       }
@@ -104,7 +103,7 @@ export function useTopup() {
       try {
         const res = await fetch('/api/topup/create-payment', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ amountUsdc }),
         });
         const data = await res.json();
@@ -122,7 +121,7 @@ export function useTopup() {
         }));
       }
     },
-    [token]
+    [isAuthenticated]
   );
 
   return { ...state, startTopup, waitForSettlement, reset };

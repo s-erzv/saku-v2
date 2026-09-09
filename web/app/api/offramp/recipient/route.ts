@@ -12,24 +12,17 @@
  */
 
 import { NextResponse } from 'next/server';
-import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { getSession, unauthorized } from '@/lib/session';
 import { hashPhone, InvalidPhoneNumberError } from '@/lib/phone';
 import { hashBankRecipient, InvalidBankAccountError } from '@/lib/bank-recipient';
-import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
-import { extractClientIP } from '@/lib/auth-middleware';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
+import { clientKey } from '@/lib/request-meta';
 
 export async function POST(request: Request) {
-  const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
-  if (!sessionToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await getSession(request);
+  if (!session) return unauthorized();
 
-  try {
-    await verifyToken(sessionToken);
-  } catch {
-    return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
-  }
-
-  const clientIP = extractClientIP(request) || 'unknown';
-  if (!rateLimiter.check(`offramp-recipient:${clientIP}`, RATE_LIMITS.IP_BASED).allowed) {
+  if (!(await checkRateLimit(clientKey(request, 'offramp-recipient'), RATE_LIMITS.IP_BASED)).allowed) {
     return NextResponse.json({ error: 'Too many lookups. Try again shortly.' }, { status: 429 });
   }
 

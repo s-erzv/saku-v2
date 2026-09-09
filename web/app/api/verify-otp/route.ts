@@ -1,10 +1,14 @@
 /**
- * Verify an OTP and issue a Saku session token.
+ * Verify an OTP and open a session.
  *
  * What this route no longer does, and why that is the point of v2: it does not create a wallet,
  * does not generate or store a private key, and does not touch an admin wallet. Key material is
- * produced client-side by the MPC layer after this token is issued (PRD 5.1 step 3). A full
- * compromise of this route yields a session, not anyone's funds.
+ * held by the signing provider (`lib/privy.ts`); a full compromise of this route yields a
+ * session, not anyone's funds.
+ *
+ * What changed again since: the token is **not returned in the response body**. It is set as an
+ * httpOnly cookie, so no page script ever holds it and no script injection can lift it. See
+ * `lib/session.ts`.
  */
 
 import { NextResponse } from 'next/server';
@@ -13,8 +17,10 @@ import { hashPhone, InvalidPhoneNumberError } from '@/lib/phone';
 import { countryFromDialCode } from '@/lib/currency';
 import { otpMatches, isWellFormedOtp, OTP_MAX_ATTEMPTS } from '@/lib/otp';
 import { generateToken } from '@/lib/jwt';
-import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
-import { extractClientIP } from '@/lib/auth-middleware';
+import { setSessionCookie } from '@/lib/session';
+import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
+import { clientKey } from '@/lib/request-meta';
+import { logAuthEvent } from '@/lib/audit-log';
 
 /**
  * One message for every failure mode: wrong code, expired code, no code ever requested,
@@ -46,8 +52,11 @@ export async function POST(request: Request) {
     return NextResponse.json(INVALID_OTP, { status: 400 });
   }
 
-  const clientIP = extractClientIP(request) || 'unknown';
-  if (!rateLimiter.check(`ip:${clientIP}`, RATE_LIMITS.IP_BASED).allowed) {
+  // Two limits, because they stop different things. The IP bucket slows one machine sweeping many
+  // numbers; the per-phone attempt counter below — which is in the database, transactional, and
+  // cannot be reset by changing address — is what protects a single account.
+  const ipLimit = await checkRateLimit(clientKey(request, 'verify-otp'), RATE_LIMITS.IP_BASED);
+  if (!ipLimit.allowed) {
     return NextResponse.json({ error: 'Too many attempts' }, { status: 429 });
   }
 
@@ -93,6 +102,13 @@ export async function POST(request: Request) {
     if (!claimed) return NextResponse.json(INVALID_OTP, { status: 400 });
 
     if (!otpMatches(otp, phoneHash, challenge.code_hmac)) {
+      // The one event worth watching for a run of. Three of these against one number, over and
+      // over, is what a code being guessed looks like from the outside.
+      await logAuthEvent(request, {
+        type: 'otp_verify_failed',
+        phoneHash,
+        metadata: { attempt: challenge.attempt_count + 1 },
+      });
       return NextResponse.json(INVALID_OTP, { status: 400 });
     }
 
@@ -105,24 +121,26 @@ export async function POST(request: Request) {
 
     const { data: existing, error: lookupError } = await supabase
       .from('users')
-      .select('id')
+      .select('id, token_version')
       .eq('phone_hash', phoneHash)
       .maybeSingle();
 
     if (lookupError) throw lookupError;
 
     let userId = existing?.id;
+    let tokenVersion = existing?.token_version ?? 0;
     const isNewUser = !userId;
 
     if (!userId) {
       const { data: created, error: createError } = await supabase
         .from('users')
         .insert({ phone_hash: phoneHash, country_code: countryCode })
-        .select('id')
+        .select('id, token_version')
         .single();
 
       if (createError) throw createError;
       userId = created.id;
+      tokenVersion = created.token_version ?? 0;
     } else {
       await supabase
         .from('users')
@@ -130,8 +148,8 @@ export async function POST(request: Request) {
         .eq('id', userId);
     }
 
-    // The user exists; the wallet does not yet. The client logs in to the MPC layer with
-    // `/api/mpc/id-token` and registers the resulting address afterwards.
+    // The user exists; the wallet does not yet. The client provisions it with
+    // `/api/mpc/provision` immediately after this.
     const { data: wallet } = await supabase
       .from('wallets')
       .select('address')
@@ -139,13 +157,26 @@ export async function POST(request: Request) {
       .eq('chain_id', Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 97))
       .maybeSingle();
 
-    return NextResponse.json({
-      success: true,
-      token: await generateToken({ phoneHash, userId }),
-      isNewUser,
-      walletAddress: wallet?.address ?? null,
-      needsWalletSetup: !wallet,
+    await logAuthEvent(request, {
+      type: isNewUser ? 'account_created' : 'otp_verify_succeeded',
+      phoneHash,
+      userId,
+      metadata: { country: countryCode },
     });
+
+    const token = await generateToken({ phoneHash, userId, version: tokenVersion });
+
+    // The token is in the cookie and nowhere else. Returning it here as well would hand it
+    // straight back to page script and undo the reason it is a cookie in the first place.
+    return setSessionCookie(
+      NextResponse.json({
+        success: true,
+        isNewUser,
+        walletAddress: wallet?.address ?? null,
+        needsWalletSetup: !wallet,
+      }),
+      token
+    );
   } catch {
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
