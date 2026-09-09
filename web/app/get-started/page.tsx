@@ -7,6 +7,14 @@ import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { toast } from "sonner"
 import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 
+/**
+ * National numbers are shorter outside Indonesia — Malaysia runs to nine digits without its
+ * leading zero and Singapore to eight, both of which a ten-digit floor rejected outright. This
+ * only stops an obviously half-typed number; `lib/phone.ts` does the real E.164 check
+ * server-side, and it is the one that should decide.
+ */
+const MIN_NATIONAL_DIGITS = 6
+
 export default function LoginScreen() {
   const router = useRouter()
   const { refreshUser, isAuthenticated, isLoading, setToken } = useAuth()
@@ -37,8 +45,8 @@ export default function LoginScreen() {
   }
 
   const handleSendOtp = async () => {
-    if (phone.length < 10) return toast.error("Invalid phone number");
-    
+    if (phone.replace(/\D/g, '').length < MIN_NATIONAL_DIGITS) return toast.error("Invalid phone number");
+
     setLoginMethod("otp");
     setLoading(true);
     
@@ -158,22 +166,37 @@ export default function LoginScreen() {
               Go Back
             </button>
             <h2 className="text-3xl font-black text-black mb-2">Phone Number</h2>
-            <p className="text-[#7F8790] mb-10 text-sm">We will send a secure verification code to your WhatsApp.</p>
+            <p className="text-[#7F8790] mb-8 text-sm">We will send a secure verification code to your WhatsApp.</p>
             <div className="space-y-6">
-              <div className="relative group">
-                <CountryCodeDropdown onSelect={setSelectedCountryCode} selectedCode={selectedCountryCode} />
-                <input 
-                  type="tel" 
-                  value={phone} 
-                  autoFocus 
-                  onChange={(e) => setPhone(e.target.value)} 
-                  placeholder="812 3456 7890" 
-                  className="w-full pl-28 pr-4 py-4 bg-white border-2 border-transparent rounded-2xl text-lg font-bold shadow-sm focus:border-black outline-none transition-all"
-                />
+              <div className="space-y-2.5">
+                <div className="relative group">
+                  <CountryCodeDropdown onSelect={setSelectedCountryCode} selectedCode={selectedCountryCode} />
+                  <input
+                    type="tel"
+                    value={phone}
+                    autoFocus
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="812 3456 7890"
+                    className="w-full pl-28 pr-4 py-4 bg-white border-2 border-transparent rounded-2xl text-lg font-bold shadow-sm focus:border-black outline-none transition-all"
+                  />
+                </div>
+                {/*
+                  Sitting against the input rather than in the heading above, because this is the
+                  one fact that changes what someone types and the heading is already read and
+                  forgotten by the time the cursor lands here. WhatsApp is the only channel Saku
+                  has — there is no SMS fallback — so a number without an account on it gets a
+                  code that can never arrive, and the failure is silent from the user's side.
+                */}
+                <p className="flex items-start gap-1.5 px-1 text-xs leading-relaxed text-[#7F8790]">
+                  <svg className="w-3.5 h-3.5 mt-px shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.87 9.87 0 004.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0012.04 2zm0 18.15h-.01a8.2 8.2 0 01-4.18-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.18 8.18 0 01-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 012.41 5.83c0 4.54-3.7 8.23-8.24 8.23z" />
+                  </svg>
+                  <span>Use a number with an active WhatsApp account. The code is sent there, never by SMS.</span>
+                </p>
               </div>
-              <button 
+              <button
                 onClick={handleSendOtp} 
-                disabled={phone.length < 10 || loading} 
+                disabled={phone.replace(/\D/g, '').length < MIN_NATIONAL_DIGITS || loading} 
                 className="w-full py-4 bg-black text-white rounded-2xl font-bold shadow-lg disabled:opacity-30 active:scale-[0.98] transition-all"
               >
                 {loading ? "Sending Code..." : "Continue"}
