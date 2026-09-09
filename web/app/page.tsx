@@ -21,6 +21,10 @@ const HERO_HAMSTERS = [
   { src: "/landing/card4.png", className: "right-[2%] bottom-[5%] w-20 sm:right-[5%] sm:bottom-[8%] sm:w-24 lg:w-32", drift: -90, tilt: -6 },
 ]
 
+// Dissolves the hero mesh into the page-wide one instead of ending it on a
+// hard horizontal line where the section stops.
+const HERO_FADE = "linear-gradient(to bottom, #000 52%, transparent 100%)"
+
 const HERO_BADGES = [
   { icon: ShieldCheck, label: "MPC-secured wallet" },
   { icon: Zap, label: "Settles in seconds" },
@@ -63,6 +67,10 @@ export default function Home() {
 
   return (
     <MotionConfig reducedMotion="user">
+      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-amber-50 via-white to-amber-50">
+        <ShaderBackground variant="ambient" className="h-full w-full" />
+      </div>
+
       <div className="w-full min-h-dvh overflow-x-hidden">
         {/* NAVBAR */}
         <div className="w-full flex justify-center">
@@ -70,10 +78,15 @@ export default function Home() {
         </div>
 
         {/* Hero Section */}
-        <section className="relative flex min-h-[94svh] w-full flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-primary via-amber-100 to-background px-6 pb-20 pt-40 text-center md:pt-44">
-          <ShaderBackground className="absolute inset-0" />
-          {/* Fades the shader into the page background instead of cutting it off. */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/25 via-transparent to-background" />
+        <section className="relative flex min-h-[94svh] w-full flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-40 text-center md:pt-44">
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ maskImage: HERO_FADE, WebkitMaskImage: HERO_FADE }}
+          >
+            <ShaderBackground className="h-full w-full" />
+          </div>
+          {/* Lifts the navbar off the busiest part of the mesh. */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/25 to-transparent" />
 
           {HERO_HAMSTERS.map((h, i) => (
             <HeroHamster key={h.src} {...h} index={i} />
@@ -176,7 +189,7 @@ export default function Home() {
         </section>
 
         {/* CTA Section */}
-        <section className="relative w-full overflow-hidden justify-center py-14 md:py-24 md:p-10 flex flex-col md:flex-row items-center gap-10 md:gap-40 bg-gradient-to-b from-background to-primary">
+        <section className="relative w-full overflow-hidden justify-center py-14 md:py-24 md:p-10 flex flex-col md:flex-row items-center gap-10 md:gap-40 bg-gradient-to-b from-transparent via-primary/30 to-primary">
           {/* Coins rising behind the copy. */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
             {[0, 1, 2, 3, 4].map((i) => (

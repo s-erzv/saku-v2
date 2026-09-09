@@ -289,7 +289,7 @@ void main() {
 
 // Saku palette. Index 0 doubles as the base tint (shade() seeds the
 // accumulator with it), so it stays the near-white cream the page sits on.
-const UNIFORMS = {
+const HERO_UNIFORMS = {
   colors: [
     [1.0, 0.99216, 0.97255],        // #FFFDF8 cream
     [1.0, 0.94510, 0.78431],        // #FFF1C8 pale gold
@@ -326,12 +326,42 @@ const UNIFORMS = {
   timeScale: 2.0,
 }
 
+// The same mesh behind the rest of the page: same hues pulled most of the way
+// to cream, wider and slower blobs, and no cursor interaction — it should read
+// as a warm paper the content sits on, not as something competing with it.
+const AMBIENT_UNIFORMS = {
+  ...HERO_UNIFORMS,
+  colors: [
+    [1.0, 0.99608, 0.98824],        // #FFFEFC cream
+    [1.0, 0.98039, 0.93725],        // #FFFAEF blush of gold
+    [1.0, 0.95294, 0.83922],        // #FFF3D6 pale saku-yellow
+    [0.98039, 0.88627, 0.78431],    // #FAE2C8 pale saku-orange
+    [0.98039, 0.88627, 0.78431],
+    [0.98039, 0.88627, 0.78431],
+    [0.98039, 0.88627, 0.78431],
+    [0.98039, 0.88627, 0.78431],
+  ] as [number, number, number][],
+  scale: 1.1,        // smaller scale spreads each blob wider on screen
+  intensity: 0.42,
+  drift: 0.06,
+  grain: 0.05,
+  timeScale: 1.1,
+  cursorEnabled: false,
+}
+
 const pendingContextReleases = new WeakMap<HTMLCanvasElement, number>()
 
-export function ShaderBackground({ className }: { className?: string }) {
+export function ShaderBackground({
+  className,
+  variant = "hero",
+}: {
+  className?: string
+  variant?: "hero" | "ambient"
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
+    const UNIFORMS = variant === "ambient" ? AMBIENT_UNIFORMS : HERO_UNIFORMS
     const canvas = canvasRef.current
     if (!canvas) return
     const pendingRelease = pendingContextReleases.get(canvas)
@@ -430,7 +460,9 @@ export function ShaderBackground({ className }: { className?: string }) {
     let inView = true
     let disposed = false
     const start = performance.now()
-    const timeAnimated = Math.abs(UNIFORMS.timeScale) > 0.0001
+    const stillness = window.matchMedia?.("(prefers-reduced-motion: reduce)")
+    const timeAnimated =
+      !stillness?.matches && Math.abs(UNIFORMS.timeScale) > 0.0001
 
     const resizeCanvas = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -602,7 +634,7 @@ export function ShaderBackground({ className }: { className?: string }) {
       }, 0)
       pendingContextReleases.set(canvas, releaseTimer)
     }
-  }, [])
+  }, [variant])
 
   return (
     <canvas ref={canvasRef} className={className} style={{ display: "block", width: "100%", height: "100%" }} />

@@ -33,7 +33,7 @@ function BounceCard({
     <motion.div
       whileHover={{ scale: 0.95, rotate: "-1deg" }}
       transition={{ type: "spring", stiffness: 260, damping: 22 }}
-      className={`group relative min-h-[400px] md:min-h-[430px] cursor-pointer overflow-hidden rounded-[2rem] border border-black/5 bg-[#FAF4E7] p-8 ${className}`}
+      className={`group relative min-h-[400px] md:min-h-[430px] cursor-pointer overflow-hidden rounded-[2rem] border border-black/5 bg-[#FAF4E7] p-8 shadow-[0_12px_34px_rgba(120,80,20,0.07)] ${className}`}
     >
       {children}
     </motion.div>
