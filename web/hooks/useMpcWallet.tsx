@@ -20,7 +20,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AbstractSigner, JsonRpcProvider, Transaction, type Provider, type TransactionRequest } from 'ethers';
-import { NETWORK_CONFIG } from '@/lib/config';
+import { NETWORK_CONFIG, RECEIPT_POLLING_MS } from '@/lib/config';
 import { useAuth } from './useAuth';
 
 export type MpcStatus = 'idle' | 'connecting' | 'connected';
@@ -128,6 +128,7 @@ export function MpcWalletProvider({ children }: { children: ReactNode }) {
     if (!address || !sessionTokenRef.current) throw new Error('Wallet is not connected');
     const provider = new JsonRpcProvider(NETWORK_CONFIG.rpcUrl, NETWORK_CONFIG.chainId, {
       staticNetwork: true,
+      pollingInterval: RECEIPT_POLLING_MS,
     });
     return new TurnkeyBackendSigner(provider, address, sessionTokenRef.current);
   }, [address]);

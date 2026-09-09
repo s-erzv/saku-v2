@@ -11,7 +11,8 @@
 
 import { NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
-import { signWithWallet } from '@/lib/turnkey';
+import { signWithWallet } from '@/lib/privy';
+import { SignerQuotaError, SignerUnreachableError } from '@/lib/signer-errors';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { CHAIN_ID } from '@/lib/chain';
 import { rateLimiter, RATE_LIMITS } from '@/lib/rate-limiter';
@@ -49,24 +50,44 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin();
     const { data: wallet, error } = await supabase
       .from('wallets')
-      .select('address, turnkey_sub_org_id')
+      .select('address, privy_wallet_id')
       .eq('user_id', session.userId)
       .eq('chain_id', CHAIN_ID)
       .maybeSingle();
 
     if (error) throw error;
-    if (!wallet?.turnkey_sub_org_id) {
+    if (!wallet?.privy_wallet_id) {
       return NextResponse.json({ error: 'No wallet provisioned for this session' }, { status: 409 });
     }
 
     const signedTransaction = await signWithWallet(
-      wallet.turnkey_sub_org_id,
+      wallet.privy_wallet_id,
       wallet.address,
       unsignedTransaction
     );
 
     return NextResponse.json({ signedTransaction });
   } catch (err) {
+    // A network failure and a refusal are different things to be told. 503 also says "try
+    // again", which is true here and is not true of the generic 500.
+    // Not the user's fault and not retryable: the deployment's signing plan is exhausted.
+    // Saying so beats a generic failure that looks like their transaction was rejected.
+    if (err instanceof SignerQuotaError) {
+      console.error('[mpc/sign] signing quota exhausted — the provider account needs more quota');
+      return NextResponse.json(
+        { error: 'Signing is temporarily unavailable on this deployment. Nothing was sent.' },
+        { status: 503 }
+      );
+    }
+
+    if (err instanceof SignerUnreachableError) {
+      console.error('[mpc/sign] signing provider unreachable');
+      return NextResponse.json(
+        { error: "Couldn't reach the signing service. Check your connection and try again." },
+        { status: 503 }
+      );
+    }
+
     console.error('[mpc/sign] failed:', err);
     return NextResponse.json({ error: 'Failed to sign transaction' }, { status: 500 });
   }

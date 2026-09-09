@@ -112,6 +112,52 @@ export async function createUserWallet(phoneHash: string): Promise<TurnkeyWallet
  * back. `getAddress` re-checksums it here rather than changing what's stored, since the DB
  * constraint has its own reason to want lowercase.
  */
+/**
+ * Whether a failure happened before Turnkey could act on the request.
+ *
+ * Only connection-level failures qualify: DNS, TCP, TLS, or a socket dropped before a response.
+ * An HTTP error means Turnkey received the request and answered — retrying that would be asking
+ * a second time for something already refused.
+ */
+function isConnectionFailure(error: unknown): boolean {
+  const codes = ['UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'];
+  for (let cause: unknown = error, depth = 0; cause && depth < 5; depth += 1) {
+    const e = cause as { code?: string; message?: string; cause?: unknown };
+    if (e.code && codes.includes(e.code)) return true;
+    if (e.message === 'fetch failed') return true;
+    cause = e.cause;
+  }
+  return false;
+}
+
+/** Raised when Turnkey could not be reached at all, so the caller can say so specifically. */
+export class TurnkeyUnreachableError extends Error {
+  constructor() {
+    super('Could not reach the signing service');
+    this.name = 'TurnkeyUnreachableError';
+  }
+}
+
+/**
+ * Raised when Turnkey refuses to sign because the organization is over its plan quota.
+ *
+ * Nothing about the request is wrong and retrying will not help — the account has to be topped
+ * up. That is a completely different thing to tell someone than "signing failed", and it is the
+ * operator's problem rather than the user's, so it gets its own type and its own message.
+ */
+export class TurnkeyQuotaError extends Error {
+  constructor() {
+    super('Signing quota exhausted');
+    this.name = 'TurnkeyQuotaError';
+  }
+}
+
+/** Turnkey's gRPC code 8 is RESOURCE_EXHAUSTED. */
+function isQuotaError(error: unknown): boolean {
+  const e = error as { code?: number | string; message?: string };
+  return e?.code === 8 || /over its allotted quota|resource exhausted/i.test(e?.message ?? '');
+}
+
 export async function signWithWallet(
   subOrgId: string,
   address: string,
@@ -122,13 +168,37 @@ export async function signWithWallet(
     ? unsignedTransactionHex.slice(2)
     : unsignedTransactionHex;
 
-  const result = await client.signTransaction({
-    organizationId: subOrgId,
-    signWith: getAddress(address),
-    unsignedTransaction: bare,
-    type: 'TRANSACTION_TYPE_ETHEREUM',
-  });
+  /**
+   * Retried once, and only when the request never reached Turnkey.
+   *
+   * Safe to repeat: this route signs, it does not broadcast — the client does that — and the
+   * transaction being signed carries a fixed nonce, so even two valid signatures of it can only
+   * ever produce one mined transaction. The alternative is failing a payment because one TLS
+   * handshake was slow, which is the worse outcome by a distance.
+   */
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const result = await client.signTransaction({
+        organizationId: subOrgId,
+        signWith: getAddress(address),
+        unsignedTransaction: bare,
+        type: 'TRANSACTION_TYPE_ETHEREUM',
+      });
 
-  const signed = result.signedTransaction;
-  return signed.startsWith('0x') ? signed : `0x${signed}`;
+      const signed = result.signedTransaction;
+      return signed.startsWith('0x') ? signed : `0x${signed}`;
+    } catch (error) {
+      lastError = error;
+      if (isQuotaError(error)) throw new TurnkeyQuotaError();
+      if (!isConnectionFailure(error)) throw error;
+      if (attempt === 0) {
+        console.warn('[turnkey] could not reach the API; retrying once');
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+    }
+  }
+
+  console.error('[turnkey] unreachable after a retry:', lastError);
+  throw new TurnkeyUnreachableError();
 }

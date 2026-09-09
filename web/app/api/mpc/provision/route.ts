@@ -11,7 +11,7 @@
 
 import { NextResponse } from 'next/server';
 import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
-import { createUserWallet } from '@/lib/turnkey';
+import { createUserWallet } from '@/lib/privy';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { ensureGasFor } from '@/lib/gas';
 import { CHAIN_ID } from '@/lib/chain';
@@ -42,20 +42,22 @@ export async function POST(request: Request) {
 
     const { data: existing } = await supabase
       .from('wallets')
-      .select('address, turnkey_sub_org_id, turnkey_wallet_id')
+      .select('address, privy_wallet_id')
       .eq('user_id', session.userId)
       .eq('chain_id', CHAIN_ID)
       .maybeSingle();
 
-    if (existing?.turnkey_sub_org_id && existing.address) {
+    if (existing?.privy_wallet_id && existing.address) {
       const gas = await ensureGasFor(session.userId, existing.address);
       return NextResponse.json({ address: existing.address, gas: gas.status });
     }
 
-    // A wallet row can already exist from before this migration (Web3Auth-era: verifier =
-    // 'saku-phone-otp', no turnkey_sub_org_id). Creating a fresh Turnkey wallet and overwriting
-    // it is a deliberate cutover, not an oversight — see docs/mpc-setup.md for why old
-    // Web3Auth-derived addresses are abandoned rather than migrated.
+    // A wallet row can already exist from an earlier custody model — Web3Auth-era (verifier =
+    // 'saku-phone-otp') or Turnkey-era (a `turnkey_sub_org_id` and no `privy_wallet_id`).
+    // Creating a fresh Privy wallet and overwriting the row is a deliberate cutover, not an
+    // oversight: the old key material is held by a provider this app no longer calls, so the
+    // address it derived cannot be signed for any more. On testnet the balance is re-mintable;
+    // see docs/mpc-setup.md.
     const wallet = await createUserWallet(session.phoneHash);
 
     const { data, error } = await supabase
@@ -65,14 +67,13 @@ export async function POST(request: Request) {
           user_id: session.userId,
           address: wallet.address,
           chain_id: CHAIN_ID,
-          verifier: 'turnkey',
+          verifier: 'privy',
           verifier_id: session.phoneHash,
-          turnkey_sub_org_id: wallet.subOrgId,
-          turnkey_wallet_id: wallet.walletId,
+          privy_wallet_id: wallet.walletId,
           factors_enrolled: 1,
-          // A new Turnkey wallet is a different on-chain account with zero drip history of its
-          // own — without resetting these, a row that already existed (Web3Auth-era, or an
-          // earlier Turnkey wallet) hands the new address someone else's drip count and cooldown,
+          // A new Privy wallet is a different on-chain account with zero drip history of its
+          // own — without resetting these, a row that already existed (Web3Auth- or Turnkey-era)
+          // hands the new address someone else's drip count and cooldown,
           // capping a wallet that has never actually received gas.
           gas_drip_count: 0,
           last_gas_drip_at: null,
