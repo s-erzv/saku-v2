@@ -13,6 +13,7 @@ import { Loader2, Plus, Send, Trash2, UserPlus, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useContacts } from "@/hooks/useContacts"
 import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
+import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
 
 export default function ContactsList() {
   const router = useRouter()
@@ -22,7 +23,7 @@ export default function ContactsList() {
   const [busy, setBusy] = useState(false)
   const [label, setLabel] = useState("")
   const [phone, setPhone] = useState("")
-  const [countryCode, setCountryCode] = useState("+62")
+  const [countryCode, setCountryCode] = useRecipientCountryCode()
 
   const submit = async () => {
     setBusy(true)

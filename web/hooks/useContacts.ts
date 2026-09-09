@@ -23,27 +23,35 @@ export interface Contact {
 
 const LOCAL_NUMBERS_KEY = 'saku_contact_numbers';
 
-function readLocalNumbers(): Record<string, string> {
+/**
+ * Namespaced by the caller's own `phone_hash` — a bare key would let a second Saku account
+ * logging in on the same browser read the first account's saved numbers straight out of
+ * `localStorage`, since nothing else about this cache is per-user.
+ */
+function readLocalNumbers(scope: string | null | undefined): Record<string, string> {
+  if (!scope) return {};
   try {
-    return JSON.parse(localStorage.getItem(LOCAL_NUMBERS_KEY) ?? '{}');
+    return JSON.parse(localStorage.getItem(`${LOCAL_NUMBERS_KEY}:${scope}`) ?? '{}');
   } catch {
     // A corrupt or unavailable store just means numbers are not shown.
     return {};
   }
 }
 
-function rememberNumber(phoneHash: string, phone: string) {
+function rememberNumber(scope: string | null | undefined, phoneHash: string, phone: string) {
+  if (!scope) return;
   try {
-    const all = readLocalNumbers();
+    const all = readLocalNumbers(scope);
     all[phoneHash] = phone;
-    localStorage.setItem(LOCAL_NUMBERS_KEY, JSON.stringify(all));
+    localStorage.setItem(`${LOCAL_NUMBERS_KEY}:${scope}`, JSON.stringify(all));
   } catch {
     // Non-fatal: the contact still saves server-side.
   }
 }
 
 export function useContacts() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const scope = user?.phone_hash;
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +65,7 @@ export function useContacts() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not load contacts');
 
-      const numbers = readLocalNumbers();
+      const numbers = readLocalNumbers(scope);
       setContacts(
         (data.contacts as Contact[]).map((c) => ({ ...c, phone: numbers[c.phoneHash] }))
       );
@@ -67,7 +75,7 @@ export function useContacts() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, scope]);
 
   useEffect(() => {
     void refresh();
@@ -88,7 +96,7 @@ export function useContacts() {
         if (!res.ok) throw new Error(data.error || 'Could not save contact');
 
         // The server gave us the hash it derived; pair it with the number locally.
-        rememberNumber(data.contact.phoneHash, `${countryCode}${phone}`);
+        rememberNumber(scope, data.contact.phoneHash, `${countryCode}${phone}`);
         await refresh();
         return data.contact as Contact;
       } catch (err) {
@@ -96,7 +104,7 @@ export function useContacts() {
         return null;
       }
     },
-    [token, refresh]
+    [token, scope, refresh]
   );
 
   const removeContact = useCallback(
