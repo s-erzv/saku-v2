@@ -11,6 +11,8 @@ import { use, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, CheckCircle, ExternalLink, Loader2, QrCode } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
+import { formatUsdc, transferFee } from "@/lib/fees"
+import { useLocalCurrency, formatLocal } from "@/hooks/useLocalCurrency"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
 import { usePayRequest } from "@/hooks/useQrPayment"
@@ -19,11 +21,12 @@ import { CONTRACTS, explorerTxUrl } from "@/lib/config"
 export default function PayRequestPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params)
   const router = useRouter()
-  const { user, wallet, isLoading, isAuthenticated } = useAuth()
+  const { user, wallet, token, isLoading, isAuthenticated } = useAuth()
   const { address } = useMpcWallet()
   const { phase, details, error, paidTxHash, load, pay } = usePayRequest(code)
 
   const [amount, setAmount] = useState("")
+  const currency = useLocalCurrency(token)
 
   const walletAddress = address ?? wallet?.address ?? null
   const { balances, refresh } = useTokenBalances(walletAddress)
@@ -141,9 +144,40 @@ export default function PayRequestPage({ params }: { params: Promise<{ code: str
             </div>
           )}
           <p className="text-sm font-bold text-black/35">USDC</p>
+
+          {/* What that is in the payer's own money. USDC is the amount being sent; this is the
+              figure they can actually judge it against. */}
+          {currency && Number(payAmount) > 0 && (
+            <p className="text-sm font-semibold text-black/45 tabular-nums">
+              ≈ {formatLocal(Number(payAmount), currency)}
+            </p>
+          )}
+
           {details.note && <p className="text-sm text-black/45 pt-1">{details.note}</p>}
         </div>
 
+
+              {/* Before signing, not only on the receipt. */}
+              <div className="rounded-2xl border border-black/8 bg-[#FAFAFA] px-4 py-3 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-black/45">{"They receive"}</span>
+                  <span className="font-bold tabular-nums">{formatUsdc(Number(payAmount || 0))} USDC</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-black/45">
+                    Platform fee ({(transferFee(1).bps / 100).toFixed(2)}%)
+                  </span>
+                  <span className="font-bold tabular-nums">
+                    +{formatUsdc(transferFee(Number(payAmount || 0)).feeUsdc)} USDC
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm pt-2 border-t border-black/5">
+                  <span className="font-bold">You pay</span>
+                  <span className="font-black tabular-nums">
+                    {formatUsdc(transferFee(Number(payAmount || 0)).grossUsdc)} USDC
+                  </span>
+                </div>
+              </div>
         <div className="rounded-2xl border border-black/8 bg-[#FAFAFA] px-4 py-3 flex items-baseline justify-between">
           <span className="text-sm font-medium text-black/45">Your balance</span>
           <span className="text-lg font-black tabular-nums">{usdc?.formatted ?? "0"} USDC</span>
@@ -168,9 +202,6 @@ export default function PayRequestPage({ params }: { params: Promise<{ code: str
           </button>
         )}
 
-        <p className="text-[11px] text-center text-black/35">
-          Sent wallet to wallet. No platform fee on QR payments.
-        </p>
       </div>
     </div>
   )
