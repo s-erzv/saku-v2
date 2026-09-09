@@ -10,13 +10,14 @@
 
 import { useState } from "react"
 import { CheckCircle, Copy, Eye, EyeOff, Loader2 } from "lucide-react"
+import { useLocalCurrency, formatLocal } from "@/hooks/useLocalCurrency"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
 import { CONTRACTS } from "@/lib/config"
 
 export default function BalanceCardSection() {
-  const { user, wallet, isLoading } = useAuth()
+  const { user, wallet, token, isLoading } = useAuth()
   const { address } = useMpcWallet()
   const walletAddress = address ?? wallet?.address ?? null
 
@@ -24,12 +25,29 @@ export default function BalanceCardSection() {
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [copied, setCopied] = useState(false)
 
+  /**
+   * The holder's own currency, resolved server-side from the country they signed up in — so a
+   * Malaysian sees ringgit and a Filipino pesos, with nothing to pick.
+   *
+   * USDC stays the unit the card opens in and the one every flow actually moves; this is a
+   * second reading of the same number, not a second balance. Tapping switches between them.
+   */
+  const localCurrency = useLocalCurrency(token)
+  const [showLocal, setShowLocal] = useState(false)
+
   // USDC is the token every Saku flow moves; mBUSD only appears as off-ramp settlement output,
   // so the headline figure is USDC rather than a sum that would drift as soon as a swap lands.
   const usdc = balances.find((t) => t.address.toLowerCase() === CONTRACTS.USDC.toLowerCase())
+  const balanceUsdc = Number(usdc?.formatted ?? 0)
   const displayBalance = usdc
-    ? Number(usdc.formatted).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    ? balanceUsdc.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "0.00"
+
+  // Null until the rate arrives, and null is what keeps the toggle inert rather than showing a
+  // converted figure derived from a rate that is not there yet.
+  const localBalance = formatLocal(balanceUsdc, localCurrency)
+  const canToggle = Boolean(localBalance)
+  const showingLocal = showLocal && canToggle
 
   const handleCopyAddress = async () => {
     if (!walletAddress) return
@@ -78,16 +96,40 @@ export default function BalanceCardSection() {
               </div>
             </div>
 
-            <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
-              <p className="text-[9px] font-bold tracking-[0.2em] text-amber-500 uppercase">BNB Testnet</p>
-            </div>
           </div>
 
           <div className="space-y-1">
-            <p className="text-[10px] font-semibold text-amber-500 tracking-[0.2em] uppercase">Current Balance</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-semibold text-amber-500 tracking-[0.2em] uppercase">Current Balance</p>
+              {canToggle && (
+                <span className="text-[9px] font-bold tracking-widest text-white/25 uppercase">
+                  {showingLocal ? localCurrency?.code : "USDC"}
+                </span>
+              )}
+            </div>
             <div className="flex items-center justify-between">
-              <h2 className="text-3xl sm:text-4xl font-bold tracking-tighter flex items-center gap-3 bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">
-                {balanceVisible ? `$ ${displayBalance}` : "$ ••••••"}
+              {/* The whole figure is the switch. A separate control would need a label, and the
+                  number itself is the only thing anyone would think to tap. */}
+              <h2
+                onClick={() => canToggle && setShowLocal((v) => !v)}
+                role={canToggle ? "button" : undefined}
+                tabIndex={canToggle ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (!canToggle) return
+                  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowLocal((v) => !v) }
+                }}
+                aria-label={canToggle ? `Balance, tap to show in ${showingLocal ? "USDC" : localCurrency?.code}` : undefined}
+                className={`text-3xl sm:text-4xl font-bold tracking-tighter flex items-center gap-3 bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent ${
+                  canToggle ? "cursor-pointer select-none active:scale-[0.98] transition-transform" : ""
+                }`}
+              >
+                {balanceVisible
+                  ? showingLocal
+                    ? localBalance
+                    : `$ ${displayBalance}`
+                  : showingLocal
+                    ? `${localCurrency?.symbol} ••••••`
+                    : "$ ••••••"}
                 {(balancesLoading || isLoading) && <Loader2 className="w-5 h-5 animate-spin text-amber-500" />}
               </h2>
               <button

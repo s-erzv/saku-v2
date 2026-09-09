@@ -34,11 +34,36 @@ const ONBOARDING_DATA = [
   }
 ]
 
-export default function OnboardingSlider() {
+interface OnboardingSliderProps {
+  /**
+   * Show it regardless of whether this person has already been through it — for the
+   * `/onboarding` route, which exists so the tour can be watched again on purpose.
+   */
+  force?: boolean
+  /** Called after the closing animation is requested, for a caller that has to navigate away. */
+  onClose?: () => void
+}
+
+/**
+ * The first-run tour.
+ *
+ * It gates itself on two flags `get-started` writes at signup, which is why it can be mounted
+ * unconditionally: on every visit that is not someone's first, it renders nothing. That was the
+ * whole design, and it was never wired up — the component sat in the tree unimported while
+ * `get-started` dutifully set the flags on every new account and sent them straight to Home, so
+ * a brand new user landed on a full wallet with no introduction at all.
+ */
+export default function OnboardingSlider({ force = false, onClose }: OnboardingSliderProps = {}) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
 
   useEffect(() => {
+    if (force) {
+      setIsOpen(true)
+      document.body.style.overflow = 'hidden'
+      return
+    }
+
     const hasSeenOnboarding = localStorage.getItem("saku_has_seen_onboarding")
     const isNewRegistration = localStorage.getItem("saku_just_registered")
 
@@ -46,13 +71,18 @@ export default function OnboardingSlider() {
       setIsOpen(true)
       document.body.style.overflow = 'hidden'
     }
-  }, [])
+  }, [force])
+
+  // Leaving the page mid-tour must not strand `overflow: hidden` on the body, which would leave
+  // the whole app unscrollable with nothing on screen to explain why.
+  useEffect(() => () => { document.body.style.overflow = 'unset' }, [])
 
   const handleClose = () => {
     localStorage.setItem("saku_has_seen_onboarding", "true")
     localStorage.removeItem("saku_just_registered")
     document.body.style.overflow = 'unset'
     setIsOpen(false)
+    onClose?.()
   }
 
   return (

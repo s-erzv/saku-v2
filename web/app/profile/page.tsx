@@ -6,6 +6,7 @@ import { LogOut, User, Users, Settings } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth" 
 import ProfileCard from "@/components/profile/profile-card"
 import WalletSecurity from "@/components/profile/wallet-security"
+import PushNotifications from "@/components/profile/push-notifications"
 import ContactsList from "@/components/profile/contacts-list"
 import HomeHeader from "@/components/home/header"
 import BottomNavigation from "@/components/home/bottom-navigation"
@@ -57,6 +58,7 @@ export default function ProfilePage() {
         {activeTab === 'profile' ? (
           <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
             <ProfileCard />
+            <PushNotifications />
             <WalletSecurity />
             
             {/* <div className="space-y-4 pt-4">

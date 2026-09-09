@@ -28,7 +28,7 @@ interface QuickAction {
 const quickActions: QuickAction[] = [
   { id: "topup", label: "Top Up", icon: ArrowDownLeft, color: "bg-orange-100 text-[#F0A353]", href: "/topup", ready: true },
   { id: "transfer", label: "Transfer", icon: Send, color: "bg-blue-100 text-blue-600", href: "/transfer", ready: true },
-  { id: "packet", label: "Packet", icon: Gift, color: "bg-red-100 text-red-600", href: "/packet/create", ready: true },
+  { id: "packet", label: "Packet", icon: Gift, color: "bg-red-100 text-red-600", href: "/packet", ready: true },
   { id: "split-bill", label: "Split Bill", icon: Users2, color: "bg-purple-100 text-purple-600", href: "/split-bill", ready: true },
   { id: "withdraw", label: "Withdraw", icon: ArrowUpRight, color: "bg-slate-200 text-slate-600", href: "/offramp", ready: true },
   { id: "staking", label: "Earn", icon: TrendingUp, color: "bg-teal-100 text-teal-600", href: "/staking", ready: true },

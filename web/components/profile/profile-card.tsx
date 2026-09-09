@@ -9,8 +9,8 @@
  * `/api/profile/update` instead of writing a table the browser has no path to.
  */
 
-import { useState } from "react"
-import { Copy, CheckCircle, Loader2, Smartphone, User, Wallet, Edit2, Save, X } from "lucide-react"
+import { useRef, useState } from "react"
+import { Camera, Copy, CheckCircle, Loader2, Smartphone, User, Wallet, Edit2, Save, X } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 
@@ -18,8 +18,40 @@ export default function ProfileCard() {
   const { user, wallet, token, refreshUser } = useAuth()
   const [isUpdating, setIsUpdating] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [fullName, setFullName] = useState(user?.display_name || "")
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAvatarSelect = (file: File) => {
+    if (!token) return
+    setUploadingAvatar(true)
+
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const res = await fetch('/api/profile/avatar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ image: reader.result }),
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error || 'Failed')
+
+        await refreshUser()
+        toast.success("Profile picture updated")
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not upload profile picture")
+      } finally {
+        setUploadingAvatar(false)
+      }
+    }
+    reader.onerror = () => {
+      toast.error("Could not read that image")
+      setUploadingAvatar(false)
+    }
+    reader.readAsDataURL(file)
+  }
 
   const handleUpdateProfile = async () => {
     if (!token) return
@@ -97,16 +129,33 @@ export default function ProfileCard() {
             </div>
 
             <div className="relative group/avatar">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 overflow-hidden flex items-center justify-center shadow-2xl transition-all duration-300 group-hover:border-amber-500/50">
-                {user?.avatar_url ? (
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleAvatarSelect(file)
+                  e.target.value = ""
+                }}
+              />
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 overflow-hidden flex items-center justify-center shadow-2xl transition-all duration-300 group-hover:border-amber-500/50 disabled:opacity-60"
+              >
+                {uploadingAvatar ? (
+                  <Loader2 className="w-6 h-6 animate-spin opacity-60" />
+                ) : user?.avatar_url ? (
                   <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                   <User className="w-8 h-8 opacity-20" />
                 )}
+              </button>
+              <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-amber-500 border-2 border-[#0A0A0A] flex items-center justify-center pointer-events-none">
+                <Camera className="w-3.5 h-3.5 text-black" />
               </div>
-              {/* No storage bucket wired up for avatars yet — showing an upload control here
-                  would just fail every time it's used, so it stays a read-only display until
-                  that backend exists. */}
             </div>
           </div>
 
