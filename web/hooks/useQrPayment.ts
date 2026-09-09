@@ -11,10 +11,12 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Contract, parseUnits } from 'ethers';
+import { Contract, formatUnits, parseUnits } from 'ethers';
 import { useAuth } from './useAuth';
 import { useMpcWallet } from './useMpcWallet';
 import { CONTRACTS } from '@/lib/config';
+import { chargePlatformFee, getTreasuryAddress } from '@/lib/platform-fee';
+import { transferFee } from '@/lib/fees';
 
 const USDC_DECIMALS = 6;
 const ERC20_ABI = [
@@ -111,21 +113,34 @@ export function usePayRequest(code: string) {
         const signer = await getSigner();
         const usdc = new Contract(CONTRACTS.USDC, ERC20_ABI, signer);
 
+        // Added on top: `value` is what the payee receives, the fee is extra.
+        const fee = parseUnits(transferFee(Number(amount)).feeUsdc.toFixed(USDC_DECIMALS), USDC_DECIMALS);
+
         if (address) {
           const balance: bigint = await usdc.balanceOf(address);
-          if (balance < value) throw new Error('Not enough USDC in your wallet.');
+          if (balance < value + fee) {
+            throw new Error(
+              `Not enough USDC: this payment needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
+            );
+          }
         }
+
+        const treasury = await getTreasuryAddress(token);
 
         const tx = await usdc.transfer(details.payeeAddress, value);
         setPaidTxHash(tx.hash);
         await tx.wait();
+
+        const feeTxHash = await chargePlatformFee({
+          signer, usdcAddress: CONTRACTS.USDC, treasury, feeUnits: fee,
+        });
 
         // Filed after confirmation — the route verifies the receipt, so an earlier call would
         // just 404 on a transaction the node has not mined.
         const res = await fetch(`/api/qr-payment/${code}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ txHash: tx.hash }),
+          body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
         });
         const data = await res.json();
         // The payment already happened on-chain; a bookkeeping failure must not read as one.

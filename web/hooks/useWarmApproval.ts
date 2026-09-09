@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Contract, JsonRpcProvider } from 'ethers';
 import { useMpcWallet } from './useMpcWallet';
-import { CONTRACTS, MAX_APPROVAL, NETWORK_CONFIG } from '@/lib/config';
+import { CONTRACTS, MAX_APPROVAL, NETWORK_CONFIG, RECEIPT_POLLING_MS } from '@/lib/config';
 
 const ERC20_ABI = [
   'function approve(address spender, uint256 amount) returns (bool)',
@@ -73,6 +73,7 @@ export function useWarmApproval(spender: string | undefined | null) {
       try {
         const provider = new JsonRpcProvider(NETWORK_CONFIG.rpcUrl, NETWORK_CONFIG.chainId, {
           staticNetwork: true,
+          pollingInterval: RECEIPT_POLLING_MS,
         });
         const readOnly = new Contract(CONTRACTS.USDC, ERC20_ABI, provider);
 

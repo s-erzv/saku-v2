@@ -4,30 +4,22 @@
  * Full transaction history.
  *
  * Reads the `transactions` cache, which is written only from verified receipts — so every row
- * here corresponds to a real BSC Testnet transaction and links out to it. The chain stays the
- * source of truth; this is the fast path for rendering it.
+ * here corresponds to a real BSC Testnet transaction. Tapping a row opens its receipt, which
+ * links out to the explorer. The chain stays the source of truth; this is the fast path for
+ * rendering it.
  */
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, ExternalLink, Loader2, Receipt } from "lucide-react"
+import { Suspense, useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Loader2, Receipt } from "lucide-react"
 import { formatUnits } from "ethers"
 import { useAuth } from "@/hooks/useAuth"
 import { useTransactions, type SakuTransaction } from "@/hooks/useTransactions"
-import { explorerTxUrl } from "@/lib/config"
+import { describeTransaction } from "@/lib/receipt-content"
 import BottomNavigation from "@/components/home/bottom-navigation"
+import ReceiptModal from "@/components/transactions/receipt-modal"
 
 const USDC_DECIMALS = 6
-
-const TYPE_LABEL: Record<SakuTransaction["type"], string> = {
-  transfer: "Transfer",
-  topup: "Top Up",
-  withdraw: "Withdraw",
-  qr_payment: "QR Pay",
-  offramp_lock: "Sent to e-wallet",
-  offramp_settle: "Off-ramp settled",
-  offramp_refund: "Off-ramp refunded",
-}
 
 function formatAmount(amount: string | null) {
   if (!amount) return "0.00"
@@ -46,14 +38,32 @@ function dayKey(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
 }
 
-export default function TransactionsPage() {
+function TransactionsView() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, isLoading, isAuthenticated } = useAuth()
   const { transactions, isLoading: loadingTx } = useTransactions(50)
+  const [selectedTx, setSelectedTx] = useState<SakuTransaction | null>(null)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace("/get-started")
   }, [isLoading, isAuthenticated, router])
+
+  // `?tx=` is how Home's Recent Activity hands a transaction over: land in the full history with
+  // that receipt already open. The list has to have loaded first, since the receipt is rendered
+  // from the row rather than re-fetched.
+  const requestedTxHash = searchParams.get("tx")
+  useEffect(() => {
+    if (!requestedTxHash) return
+    const match = transactions.find((tx) => tx.txHash === requestedTxHash)
+    if (match) setSelectedTx(match)
+  }, [requestedTxHash, transactions])
+
+  /** Drop `?tx=` on close so Back doesn't reopen the receipt the user just dismissed. */
+  function closeReceipt() {
+    setSelectedTx(null)
+    if (requestedTxHash) router.replace("/transactions")
+  }
 
   if (isLoading) {
     return (
@@ -94,7 +104,6 @@ export default function TransactionsPage() {
           <div className="py-16 text-center space-y-2">
             <Receipt className="w-10 h-10 mx-auto text-black/12" />
             <p className="text-sm font-medium text-black/40">No transactions yet</p>
-            <p className="text-xs text-black/30">Top up or send something to get started.</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -106,13 +115,12 @@ export default function TransactionsPage() {
 
                 {rows.map((tx) => {
                   const incoming = tx.direction === "in"
+                  const { label, detail } = describeTransaction(tx)
                   return (
-                    <a
+                    <button
                       key={tx.txHash}
-                      href={explorerTxUrl(tx.txHash)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="group flex items-center gap-3 p-3 rounded-2xl hover:bg-black/[0.02] transition-colors"
+                      onClick={() => setSelectedTx(tx)}
+                      className="group w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-black/[0.02] transition-colors text-left"
                     >
                       <div
                         className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
@@ -127,8 +135,12 @@ export default function TransactionsPage() {
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-black/80 truncate">{TYPE_LABEL[tx.type]}</p>
-                        <p className="text-[11px] text-black/40">
+                        <p className="text-sm font-bold text-black/80 truncate">
+                          {tx.counterpartyName ?? label}
+                        </p>
+                        <p className="text-[11px] text-black/40 truncate">
+                          {tx.counterpartyName ? `${label} · ` : ""}
+                          {detail ? `${detail} · ` : ""}
                           {new Date(tx.occurredAt).toLocaleTimeString("en-US", {
                             hour: "2-digit",
                             minute: "2-digit",
@@ -147,10 +159,10 @@ export default function TransactionsPage() {
                         </p>
                         <p className="text-[10px] font-semibold text-black/30 flex items-center justify-end gap-1">
                           USDC
-                          <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <Receipt className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </p>
                       </div>
-                    </a>
+                    </button>
                   )
                 })}
               </div>
@@ -160,6 +172,26 @@ export default function TransactionsPage() {
       </div>
 
       <BottomNavigation />
+
+      {selectedTx && <ReceiptModal transaction={selectedTx} onClose={closeReceipt} />}
     </div>
+  )
+}
+
+/**
+ * `useSearchParams` opts the tree into client-side rendering, which Next requires a Suspense
+ * boundary around for a route that is otherwise prerendered.
+ */
+export default function TransactionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-dvh bg-white flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-black/20" />
+        </div>
+      }
+    >
+      <TransactionsView />
+    </Suspense>
   )
 }

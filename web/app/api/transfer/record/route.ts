@@ -8,10 +8,13 @@
  */
 
 import { NextResponse } from 'next/server';
-import { Interface, id as keccakId } from 'ethers';
+import { Interface, formatUnits, id as keccakId, parseUnits } from 'ethers';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
-import { CHAIN_ID, getProvider, getUsdcAddress } from '@/lib/chain';
+import { transferFee } from '@/lib/fees';
+import { recordTransaction } from '@/lib/record-transaction';
+import { CHAIN_ID, USDC_DECIMALS, getProvider, getUsdcAddress } from '@/lib/chain';
+import { sendPushNotification } from '@/lib/push';
 
 const TRANSFER_TOPIC = keccakId('Transfer(address,address,uint256)');
 const ERC20_INTERFACE = new Interface([
@@ -19,6 +22,22 @@ const ERC20_INTERFACE = new Interface([
 ]);
 
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
+
+/**
+ * The platform fee this transaction carried, recomputed here from the amount the chain actually
+ * moved rather than taken from the request body. The client is told what the fee is; it is not
+ * trusted to report what it paid.
+ */
+function feeFor(amountUnits: bigint): string {
+  const amount = Number(formatUnits(amountUnits, USDC_DECIMALS));
+  return parseUnits(transferFee(amount).feeUsdc.toFixed(USDC_DECIMALS), USDC_DECIMALS).toString();
+}
+
+/** The separate treasury transfer that collected it, kept for tracing. Never trusted as proof. */
+function feeHashFrom(body: unknown): string | null {
+  const hash = (body as { feeTxHash?: unknown })?.feeTxHash;
+  return typeof hash === 'string' && /^0x[0-9a-fA-F]{64}$/.test(hash) ? hash.toLowerCase() : null;
+}
 
 export async function POST(request: Request) {
   const sessionToken = extractTokenFromHeader(request.headers.get('authorization'));
@@ -96,7 +115,7 @@ export async function POST(request: Request) {
 
     // `transactions` is unique per (chain_id, tx_hash), so a double submit collides instead of
     // duplicating. Treat that as success — the row it wanted is already there.
-    const { error: insertError } = await supabase.from('transactions').insert({
+    const record = await recordTransaction(supabase, {
       tx_hash: txHash.toLowerCase(),
       chain_id: CHAIN_ID,
       type: 'transfer',
@@ -105,20 +124,38 @@ export async function POST(request: Request) {
       to_address: to,
       token_address: tokenAddress,
       amount: value,
+      fee_amount: feeFor(BigInt(value)),
+      fee_tx_hash: feeHashFrom(body),
       user_id: session.userId,
       counterparty_user_id: recipientWallet?.user_id ?? null,
       block_number: receipt.blockNumber,
     });
 
-    if (insertError && insertError.code !== '23505') throw insertError;
 
-    if (!insertError && recipientWallet?.user_id) {
-      await supabase.from('notifications').insert({
-        user_id: recipientWallet.user_id,
+    // Skipped on a resubmit: the recipient was already told the first time round.
+    if (!record.duplicate && recipientWallet?.user_id) {
+      // No `display_name` lookup here on purpose: the sentence is composed at read time
+      // (`lib/notification-copy.ts`), so the id is what needs storing, not the name it had
+      // on the day the transfer happened.
+      const notification = {
+        userId: recipientWallet.user_id as string,
         type: 'transfer_received',
         message: 'You received USDC.',
-        metadata: { tx_hash: txHash.toLowerCase(), amount: value },
+        metadata: {
+          tx_hash: txHash.toLowerCase(),
+          amount: value,
+          counterparty_user_id: session.userId,
+        },
+      };
+
+      await supabase.from('notifications').insert({
+        user_id: notification.userId,
+        type: notification.type,
+        message: notification.message,
+        metadata: notification.metadata,
       });
+
+      await sendPushNotification(notification);
     }
 
     return NextResponse.json({ success: true, from, to, amount: value });

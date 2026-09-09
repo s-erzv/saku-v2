@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Contract, JsonRpcProvider, formatUnits } from 'ethers';
-import { NETWORK_CONFIG, TOKENS } from '@/lib/config';
+import { NETWORK_CONFIG, TOKENS, RECEIPT_POLLING_MS } from '@/lib/config';
 
 const ERC20_BALANCE_ABI = ['function balanceOf(address) view returns (uint256)'];
 
@@ -41,6 +41,7 @@ export function useTokenBalances(address: string | null) {
     try {
       const provider = new JsonRpcProvider(NETWORK_CONFIG.rpcUrl, NETWORK_CONFIG.chainId, {
         staticNetwork: true,
+        pollingInterval: RECEIPT_POLLING_MS,
       });
 
       const [native, tokenBalances] = await Promise.all([

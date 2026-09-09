@@ -8,9 +8,12 @@
  */
 
 import { NextResponse } from 'next/server';
-import { formatUnits, Interface, id as keccakId } from 'ethers';
+import { Interface, formatUnits, id as keccakId, parseUnits } from 'ethers';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { verifyToken, extractTokenFromHeader } from '@/lib/jwt';
+import { transferFee } from '@/lib/fees';
+import { recordTransaction } from '@/lib/record-transaction';
+import { sendPushNotification } from '@/lib/push';
 import { CHAIN_ID, USDC_DECIMALS, getProvider, getUsdcAddress } from '@/lib/chain';
 import { describeDbError } from '@/lib/db-errors';
 
@@ -84,6 +87,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ code
   } catch {
     return NextResponse.json({ error: 'Could not load this request' }, { status: 500 });
   }
+}
+
+/**
+ * The platform fee this transaction carried, recomputed here from the amount the chain actually
+ * moved rather than taken from the request body. The client is told what the fee is; it is not
+ * trusted to report what it paid.
+ */
+function feeFor(amountUnits: bigint): string {
+  const amount = Number(formatUnits(amountUnits, USDC_DECIMALS));
+  return parseUnits(transferFee(amount).feeUsdc.toFixed(USDC_DECIMALS), USDC_DECIMALS).toString();
+}
+
+/** The separate treasury transfer that collected it, kept for tracing. Never trusted as proof. */
+function feeHashFrom(body: unknown): string | null {
+  const hash = (body as { feeTxHash?: unknown })?.feeTxHash;
+  return typeof hash === 'string' && /^0x[0-9a-fA-F]{64}$/.test(hash) ? hash.toLowerCase() : null;
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ code: string }> }) {
@@ -166,7 +185,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       return NextResponse.json({ error: 'This request is no longer open' }, { status: 409 });
     }
 
-    const { error: txError } = await supabase.from('transactions').insert({
+    await recordTransaction(supabase, {
       tx_hash: txHash.toLowerCase(),
       chain_id: CHAIN_ID,
       type: 'qr_payment',
@@ -175,18 +194,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       to_address: to,
       token_address: tokenAddress,
       amount: paid.toString(),
+      fee_amount: feeFor(paid),
+      fee_tx_hash: feeHashFrom(body),
       user_id: session.userId,
       counterparty_user_id: row.payee_id,
       block_number: receipt.blockNumber,
     });
-    if (txError && txError.code !== '23505') throw txError;
 
-    await supabase.from('notifications').insert({
-      user_id: row.payee_id,
+    const notification = {
+      userId: row.payee_id as string,
       type: 'transfer_received',
       message: 'Your QR payment was paid.',
-      metadata: { code: row.code, tx_hash: txHash.toLowerCase(), amount: paid.toString() },
+      metadata: {
+        code: row.code,
+        tx_hash: txHash.toLowerCase(),
+        amount: paid.toString(),
+        counterparty_user_id: session.userId,
+      },
+    };
+
+    await supabase.from('notifications').insert({
+      user_id: notification.userId,
+      type: notification.type,
+      message: notification.message,
+      metadata: notification.metadata,
     });
+
+    await sendPushNotification(notification);
 
     return NextResponse.json({
       success: true,

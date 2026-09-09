@@ -57,13 +57,15 @@ export async function POST(request: Request) {
     // A static code carries no amount — the payer enters it, as they would at the counter.
     let usdcNeeded: number | null = null;
     let feeUsdc: number | null = null;
+    let netUsdc: number | null = null;
 
     if (qris.amount !== null) {
-      // Gross up: the merchant must receive the full amount after the fee is taken out.
-      const net = qris.amount / fx.rate;
-      const guess = net / (1 - offrampFee(Math.max(net, 1)).feeUsdc / Math.max(net, 1));
-      usdcNeeded = Math.ceil(guess * 1e6) / 1e6;
-      feeUsdc = offrampFee(usdcNeeded).feeUsdc;
+      // The merchant must receive the full amount; `offrampFee` adds its fee on top of that net
+      // figure to get what the payer actually needs to lock.
+      netUsdc = qris.amount / fx.rate;
+      const fee = offrampFee(netUsdc);
+      usdcNeeded = fee.grossUsdc;
+      feeUsdc = fee.feeUsdc;
     }
 
     return NextResponse.json({
@@ -79,6 +81,7 @@ export async function POST(request: Request) {
       dynamic: qris.dynamic,
       usdcNeeded,
       feeUsdc,
+      netUsdc,
       fxRate: fx.rate,
       fxSource: fx.source,
       symbol: currency.symbol,
