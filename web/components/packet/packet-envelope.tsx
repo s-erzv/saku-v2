@@ -108,17 +108,24 @@ export default function PacketEnvelope({
 
   // The well's opened geometry, taken in one step during the gap where the old contents have
   // gone and the new ones have not yet lifted off. See `wellSwapMs` for why it is not animated.
-  const [wellOpen, setWellOpen] = useState(opened)
+  //
+  // `wellOpen` is derived rather than stored, and `swapped` only ever moves forward, inside a
+  // timer. An earlier version set it back to false in the effect body when the envelope closed,
+  // which is a synchronous setState during commit — a cascading render, and one the React lint
+  // rule is right to refuse. Deriving it makes the closing case cost nothing: the moment
+  // `opened` is false the well reads closed, with no state change to schedule.
+  //
+  // The trade is that closing and then reopening the same envelope would skip the delay. No
+  // caller does that — the claim page opens once and never closes, and the picker and the
+  // create-form preview never open — and a skipped delay would cost a hidden geometry step, not
+  // a wrong one.
+  const [swapped, setSwapped] = useState(opened)
   useEffect(() => {
-    if (wellOpen === opened) return
-    // Closing has no such gap to hide in, and nothing waits on it, so it happens at once.
-    if (!opened) {
-      setWellOpen(false)
-      return
-    }
-    const id = setTimeout(() => setWellOpen(true), t.wellSwapMs)
+    if (!opened || swapped) return
+    const id = setTimeout(() => setSwapped(true), t.wellSwapMs)
     return () => clearTimeout(id)
-  }, [opened, wellOpen, t.wellSwapMs])
+  }, [opened, swapped, t.wellSwapMs])
+  const wellOpen = opened && swapped
 
   // The flap's depth is a fraction of the card's WIDTH, not a fixed pixel height. A real
   // envelope's V scales with the envelope; pinning it to 132px meant the same flap on a 118px
