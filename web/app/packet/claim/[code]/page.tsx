@@ -11,9 +11,16 @@
  * of the envelope, and confetti fires.
  */
 
-import { use, useCallback, useEffect, useState } from "react"
+import { use, useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { AnimatePresence, animate, motion } from "framer-motion"
+import {
+  AnimatePresence,
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from "framer-motion"
 import { ArrowLeft, ArrowLeftRight, ExternalLink, Gift, Loader2, Lock, Mail } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useClaimPacket } from "@/hooks/usePacket"
@@ -22,6 +29,7 @@ import { PACKET_THEMES } from "@/lib/packet-themes"
 import PacketEnvelope from "@/components/packet/packet-envelope"
 import PacketLetter from "@/components/packet/packet-letter"
 import { explorerTxUrl } from "@/lib/config"
+import { EASE_RISE, openTimeline, type Beat } from "@/lib/packet-open-timeline"
 
 /** Deterministic-ish burst: enough pieces to read as celebration, few enough to stay smooth. */
 const CONFETTI = Array.from({ length: 28 }, (_, i) => ({
@@ -32,17 +40,24 @@ const CONFETTI = Array.from({ length: 28 }, (_, i) => ({
   hue: ["#F0A353", "#059669", "#e11d48", "#6366f1", "#fbbf24"][i % 5],
 }))
 
-function Confetti() {
+function Confetti({ beat }: { beat: Beat }) {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+    // `z-30` because it was not there, and without it none of this was ever visible. The
+    // envelope's wrapper carries a transform, which makes it a stacking context, and this layer
+    // is its DOM sibling with `z-auto` — so every piece was painted underneath an opaque
+    // envelope and the burst only ever showed in the margins around it.
+    <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden" aria-hidden>
       {CONFETTI.map((piece) => (
         <motion.span
           key={piece.id}
           className="absolute left-1/2 top-[38%] block w-1.5 h-3 rounded-[1px]"
-          style={{ backgroundColor: piece.hue }}
+          // Transform and opacity only, and declared ahead of time: twenty-eight of these
+          // enter at once, halfway through the fold, which is the exact moment worth handing
+          // the compositor its layers before it discovers it needs them.
+          style={{ backgroundColor: piece.hue, willChange: "transform, opacity" }}
           initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
           animate={{ x: piece.x * 2.4, y: [0, -90, 240], opacity: [1, 1, 0], rotate: piece.rotate * 2 }}
-          transition={{ duration: 1.5, delay: piece.delay, ease: "easeOut" }}
+          transition={{ duration: beat.duration, delay: beat.at + piece.delay, ease: "easeOut" }}
         />
       ))}
     </div>
@@ -60,22 +75,28 @@ function formatAmount(value: string) {
  *
  * The point is direction. A claimed share landing as a finished figure next to the packet's
  * larger balance reads ambiguously; watching it climb from nothing does not.
+ *
+ * It climbs without React seeing any of it. The previous version called `setState` on every
+ * frame, so the whole claim page — envelope, folding flap, twenty-eight confetti pieces — was
+ * reconciled sixty times a second during the busiest stretch of the sequence, for the sake of
+ * one text node. A motion value writes to that node directly, and this component renders once.
  */
-function CountUp({ to, decimals = 2 }: { to: number; decimals?: number }) {
-  const [value, setValue] = useState(0)
+function CountUp({ to, decimals = 2, beat }: { to: number; decimals?: number; beat: Beat }) {
+  const count = useMotionValue(0)
+  const text = useTransform(count, (v) =>
+    v.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  )
 
   useEffect(() => {
     if (!Number.isFinite(to)) return
-    const controls = animate(0, to, {
-      duration: 0.9,
-      delay: 0.4,
-      ease: [0.22, 1, 0.36, 1],
-      onUpdate: (v) => setValue(v),
-    })
+    // From wherever the figure currently stands rather than from zero, so that flipping the
+    // currency toggle afterwards slides between the two amounts instead of dropping to nothing
+    // and climbing again.
+    const controls = animate(count, to, { duration: beat.duration, delay: beat.at, ease: EASE_RISE })
     return () => controls.stop()
-  }, [to])
+  }, [to, count, beat.at, beat.duration])
 
-  return <>{value.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}</>
+  return <motion.span>{text}</motion.span>
 }
 
 export default function ClaimPacketPage({ params }: { params: Promise<{ code: string }> }) {
@@ -88,6 +109,7 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
   const [opened, setOpened] = useState(false)
   const [celebrating, setCelebrating] = useState(false)
   const [showLocal, setShowLocal] = useState(false)
+  const reduced = useReducedMotion() ?? false
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -106,15 +128,22 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
     if (details?.alreadyClaimed && !claimed) setOpened(true)
   }, [details?.alreadyClaimed, claimed])
 
+  // The one clock. The envelope reads the same beats out of the same module, so the flap, the
+  // note, the amount and the burst can no longer drift apart the way they had.
+  const hasLetter = Boolean(opened && details?.message)
+  const timeline = useMemo(() => openTimeline({ hasLetter, reduced }), [hasLetter, reduced])
+
   const handleOpen = useCallback(async () => {
     // Gated on the result: this used to open the envelope and fire confetti even when the claim
     // had failed, because `claim()` resolved the same way either way.
     const result = await claim()
     if (!result) return
     setOpened(true)
+    // Someone who has asked their phone for less motion has not asked for paper in the air.
+    if (reduced) return
     setCelebrating(true)
-    setTimeout(() => setCelebrating(false), 2400)
-  }, [claim])
+    setTimeout(() => setCelebrating(false), timeline.celebrationMs)
+  }, [claim, reduced, timeline.celebrationMs])
 
   const theme = PACKET_THEMES.find((t) => t.id === details?.theme) ?? PACKET_THEMES[0]
 
@@ -160,7 +189,7 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
   return (
     <div className="min-h-dvh bg-white font-sans">
       <div className="relative max-w-lg mx-auto px-5 py-6 space-y-6">
-        <AnimatePresence>{celebrating && <Confetti />}</AnimatePresence>
+        <AnimatePresence>{celebrating && <Confetti beat={timeline.confetti} />}</AnimatePresence>
 
         <div className="flex items-center gap-3">
           <button
@@ -184,7 +213,10 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
           transition={
             claiming
               ? { duration: 0.55, repeat: Infinity }
-              : { type: "spring", stiffness: 200, damping: 14 }
+              : // Settles before the contents rise. Overlapping the two had the amount being
+                // scaled by an ancestor while it was also moving under its own transform, which
+                // is what kept the figure soft for the first half-second of its life.
+                { type: "spring", stiffness: 320, damping: 26 }
           }
         >
           <PacketEnvelope
@@ -207,9 +239,17 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
               {opened && amountShown ? (
                 <motion.div
                   key="claimed"
-                  initial={{ opacity: 0, y: 16, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 220, damping: 18, delay: 0.35 }}
+                  // This element owns the amount's entrance outright. The envelope's content
+                  // wrapper is inert now, so nothing else is moving it — which it was, from the
+                  // other file, half a second later. No `scale` either: growing the figure while
+                  // its own digits are still changing is what made counting up read as blur.
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: timeline.amountEntrance.duration,
+                    delay: timeline.amountEntrance.at,
+                    ease: EASE_RISE,
+                  }}
                   className="space-y-0.5"
                 >
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">
@@ -221,6 +261,7 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
                     <CountUp
                       to={Number(showLocal && localAmount ? localAmount.replace(/[^\d.]/g, "") : amountShown)}
                       decimals={showLocal && currency ? currency.decimals : 2}
+                      beat={timeline.countUpEntrance}
                     />
                   </p>
                   <p className="text-sm font-bold opacity-80">
@@ -236,7 +277,7 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
                 <motion.div
                   key="unopened"
                   exit={{ opacity: 0, scale: 0.92 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: timeline.swap.duration }}
                   className="space-y-0.5"
                 >
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">

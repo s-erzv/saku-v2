@@ -30,7 +30,7 @@ import PacketEnvelope from "@/components/packet/packet-envelope"
 import PacketLetter from "@/components/packet/packet-letter"
 import ContactCircle from "@/components/packet/contact-circle"
 import { CONTRACTS } from "@/lib/config"
-import { transferFee } from "@/lib/fees"
+import { formatUsdc, transferFee } from "@/lib/fees"
 
 const MAX_SLOTS = 100
 
@@ -193,7 +193,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
                   <p className="text-xs font-semibold text-black/40 tabular-nums">
                     {money.unit === "usdc"
                       ? (formatLocal(Number(amount || 0), money.currency) ?? "")
-                      : `${Number(amount || 0).toFixed(2)} USDC`}
+                      : `${formatUsdc(Number(amount || 0))} USDC`}
                   </p>
                   <button
                     type="button"
@@ -379,20 +379,20 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
             <div className="rounded-2xl border border-black/8 bg-[#FAFAFA] px-4 py-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-black/45">Goes in the packet</span>
-                <span className="font-bold tabular-nums">{amountNum.toFixed(2)} USDC</span>
+                <span className="font-bold tabular-nums">{formatUsdc(amountNum)} USDC</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-black/45">
                   Platform fee ({(transferFee(1).bps / 100).toFixed(2)}%)
                 </span>
                 <span className="font-bold tabular-nums">
-                  +{transferFee(amountNum).feeUsdc.toFixed(2)} USDC
+                  +{formatUsdc(transferFee(amountNum).feeUsdc)} USDC
                 </span>
               </div>
               <div className="flex justify-between text-sm pt-2 border-t border-black/5">
                 <span className="font-bold">You pay</span>
                 <span className="font-black tabular-nums">
-                  {transferFee(amountNum).grossUsdc.toFixed(2)} USDC
+                  {formatUsdc(transferFee(amountNum).grossUsdc)} USDC
                 </span>
               </div>
             </div>

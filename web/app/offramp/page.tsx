@@ -31,6 +31,7 @@ import RecentBanksPicker from "@/components/shared/recent-banks-picker"
 import ReceiptModal from "@/components/transactions/receipt-modal"
 import { rememberRecentBank, rememberRecentPhone } from "@/lib/recent-recipients"
 import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
+import { formatUsdc } from "@/lib/fees"
 
 interface Quote {
   stableOut?: number
@@ -473,19 +474,23 @@ export default function OfframpPage() {
                   <div className="mt-4 pt-4 border-t border-black/8 space-y-2 text-left">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-black/40 font-medium">Amount</span>
-                      <span className="font-bold tabular-nums">{amount} USDC</span>
+                      <span className="font-bold tabular-nums">{formatUsdc(Number(amount || 0))} USDC</span>
                     </div>
                     {quote.feeUsdc !== undefined && (
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-black/40 font-medium">
                           Fee ({((quote.feeBps ?? 0) / 100).toFixed(2)}%, added on top)
                         </span>
-                        <span className="font-bold tabular-nums text-[#F0A353]">+{quote.feeUsdc} USDC</span>
+                        <span className="font-bold tabular-nums text-[#F0A353]">
+                          +{formatUsdc(quote.feeUsdc)} USDC
+                        </span>
                       </div>
                     )}
                     <div className="flex items-center justify-between text-xs pt-2 border-t border-black/8">
                       <span className="text-black/40 font-medium">You pay</span>
-                      <span className="font-black tabular-nums">{quote.grossUsdc ?? amount} USDC</span>
+                      <span className="font-black tabular-nums">
+                        {formatUsdc(Number(quote.grossUsdc ?? amount ?? 0))} USDC
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-black/40 font-medium">Rate</span>

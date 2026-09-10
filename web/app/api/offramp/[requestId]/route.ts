@@ -20,6 +20,7 @@ import { refundOfframp } from '@/lib/escrow';
  * error shape, which makes every field access below a type error.
  */
 interface OfframpRow {
+  id: string;
   request_id: string;
   status: string;
   fiat_status: string;
@@ -38,7 +39,9 @@ interface OfframpRow {
 }
 
 const SELECT =
-  'request_id, status, fiat_status, amount, recipient_rail, rate_expires_at, ' +
+  // `id` is here so a refund's history row can point back at this request. It was missing, and
+  // `transactions.offramp_request_id` was empty for every refund as a result.
+  'id, request_id, status, fiat_status, amount, recipient_rail, rate_expires_at, ' +
   'lock_tx_hash, settle_tx_hash, refund_tx_hash, stable_amount_out, ' +
   'fiat_amount_idr, mock_exchange_reference, mock_disbursement_reference, failure_reason, created_at';
 
@@ -122,6 +125,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ req
       amount: String(row.amount),
       user_id: session.userId,
       block_number: receipt.blockNumber,
+      offramp_request_id: row.id,
     });
 
     return NextResponse.json({ success: true, status: 'refunded', refundTxHash: receipt.hash });

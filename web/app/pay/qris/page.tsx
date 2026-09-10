@@ -23,7 +23,7 @@ import { useOfframp } from "@/hooks/useOfframp"
 import { useWarmApproval } from "@/hooks/useWarmApproval"
 import { keccak256, toUtf8Bytes } from "ethers"
 import { CONTRACTS, explorerTxUrl } from "@/lib/config"
-import { offrampFee } from "@/lib/fees"
+import { formatUsdc, offrampFee } from "@/lib/fees"
 
 interface QrisInfo {
   merchant: { name: string | null; city: string | null; id: string | null; acquirer: string | null }
@@ -263,12 +263,12 @@ export default function PayQrisPage() {
               {feeUsdc !== null && (
                 <div className="flex justify-between text-black/45">
                   <span>Fee (added on top)</span>
-                  <span className="tabular-nums">+{feeUsdc} USDC</span>
+                  <span className="tabular-nums">+{formatUsdc(feeUsdc)} USDC</span>
                 </div>
               )}
               <div className="flex justify-between text-black/45">
                 <span>You pay</span>
-                <span className="tabular-nums font-bold text-black/70">{usdcToSend} USDC</span>
+                <span className="tabular-nums font-bold text-black/70">{formatUsdc(usdcToSend)} USDC</span>
               </div>
             </div>
           )}

@@ -138,6 +138,26 @@ export function useStaking() {
     void refresh();
   }, [refresh]);
 
+/**
+ * Put a finished staking transaction into the history.
+ *
+ * Deliberately after `tx.wait()` and deliberately unable to fail the action: the money has
+ * already moved by the time this runs, so a recording that does not land is a missing row, not a
+ * failed stake. The route reads the amount off the receipt, so there is nothing to send but the
+ * hash.
+ */
+async function recordStaking(txHash: string): Promise<void> {
+  try {
+    await fetch('/api/staking/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txHash }),
+    });
+  } catch (error) {
+    console.error('[staking] could not record this transaction:', error);
+  }
+}
+
   /** Wrap a signed call so every action shares the same error handling and refresh. */
   const run = useCallback(
     async (label: StakingAction, fn: (staking: Contract) => Promise<{ hash: string; wait: () => Promise<unknown> }>) => {
@@ -151,6 +171,7 @@ export function useStaking() {
         const tx = await fn(staking);
         setLastTxHash(tx.hash);
         await tx.wait();
+        await recordStaking(tx.hash);
         await refresh();
         return tx.hash;
       } catch (err) {
@@ -194,6 +215,7 @@ export function useStaking() {
         const tx = await staking.stake(value);
         setLastTxHash(tx.hash);
         await tx.wait();
+        await recordStaking(tx.hash);
         await refresh();
         return tx.hash as string;
       } catch (err) {

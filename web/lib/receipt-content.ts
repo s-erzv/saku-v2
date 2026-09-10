@@ -63,6 +63,9 @@ export const TYPE_LABEL: Record<SakuTransaction['type'], string> = {
   offramp_lock: 'Sent to e-wallet',
   offramp_settle: 'Off-ramp settled',
   offramp_refund: 'Off-ramp refunded',
+  stake: 'Staked',
+  unstake: 'Unstaked',
+  stake_reward: 'Staking rewards',
 };
 
 export const STATUS_LABEL: Record<SakuTransaction['status'], string> = {
@@ -90,20 +93,19 @@ export function formatAmount(amount: string | number | null) {
     if (!digits) return '0.00';
 
     const padded = digits.padStart(USDC_DECIMALS + 1, '0');
-    let whole = Number(padded.slice(0, -USDC_DECIMALS));
-    const fraction = padded.slice(-USDC_DECIMALS);
-    let cents = Number(fraction.slice(0, 2));
+    const whole = Number(padded.slice(0, -USDC_DECIMALS));
 
-    // Round rather than truncate — 1.999999 USDC reading as "1.99" understates what moved.
-    if (Number(fraction[2]) >= 5) {
-      cents += 1;
-      if (cents === 100) {
-        cents = 0;
-        whole += 1;
-      }
-    }
+    // Two decimals is the floor, because that is how money reads. Everything below it is kept
+    // when it carries a value rather than being folded away: a 0.30% fee on a 1.00 USDC
+    // transfer is 0.003, and cutting to two decimals printed it as "0.00" on the receipt for a
+    // fee the wallet had genuinely paid. Six is the ceiling; USDC holds no more than that.
+    //
+    // No rounding is needed any more either. Rounding was here so that 1.999999 did not read as
+    // "1.99", which was the right fix for a display that could only show two places and the
+    // wrong one for a display that can show all six.
+    const fraction = padded.slice(-USDC_DECIMALS).replace(/0+$/, '').padEnd(2, '0');
 
-    return `${whole.toLocaleString('en-US')}.${String(cents).padStart(2, '0')}`;
+    return `${whole.toLocaleString('en-US')}.${fraction}`;
   } catch {
     return '0.00';
   }

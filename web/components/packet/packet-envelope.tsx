@@ -12,10 +12,16 @@
  * the card is a flex column — a fixed flap region, then a `flex-1` well the content centres
  * itself in — so content can grow to whatever it needs and the decoration can never be in its
  * way. Every absolute layer sits behind it and is `pointer-events-none`.
+ *
+ * Timing note: not one delay or duration in this file is written here. They all come from
+ * `lib/packet-open-timeline.ts`, because the claim page animates into the same envelope and the
+ * two used to disagree about when things happened. Reach for that module to change the pacing.
  */
 
-import { motion } from "framer-motion"
+import { useEffect, useState } from "react"
+import { motion, useReducedMotion } from "framer-motion"
 import type { PacketPattern, PacketTheme } from "@/lib/packet-themes"
+import { EASE_FOLD, EASE_RISE, openTimeline } from "@/lib/packet-open-timeline"
 
 interface PacketEnvelopeProps {
   theme: PacketTheme
@@ -97,6 +103,23 @@ export default function PacketEnvelope({
   const ink = theme.inkOnLight ? theme.colors.accent : "#ffffff"
   const motif = patternUrl(theme.pattern, ink)
 
+  const reduced = useReducedMotion() ?? false
+  const t = openTimeline({ hasLetter: Boolean(letter), reduced })
+
+  // The well's opened geometry, taken in one step during the gap where the old contents have
+  // gone and the new ones have not yet lifted off. See `wellSwapMs` for why it is not animated.
+  const [wellOpen, setWellOpen] = useState(opened)
+  useEffect(() => {
+    if (wellOpen === opened) return
+    // Closing has no such gap to hide in, and nothing waits on it, so it happens at once.
+    if (!opened) {
+      setWellOpen(false)
+      return
+    }
+    const id = setTimeout(() => setWellOpen(true), t.wellSwapMs)
+    return () => clearTimeout(id)
+  }, [opened, wellOpen, t.wellSwapMs])
+
   // The flap's depth is a fraction of the card's WIDTH, not a fixed pixel height. A real
   // envelope's V scales with the envelope; pinning it to 132px meant the same flap on a 118px
   // picker thumbnail and a 470px hero, where it read as a shallow wedge floating near the top
@@ -166,7 +189,7 @@ export default function PacketEnvelope({
             transform: "translateY(3px)",
           }}
           animate={{ opacity: opened ? 0 : 1 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: t.fold.duration, delay: opened ? t.fold.at : 0 }}
         />
 
         {/* No `backfaceVisibility: hidden` — that is what made the flap disappear halfway
@@ -186,8 +209,15 @@ export default function PacketEnvelope({
           // flap look like it had blinked out. The last of it fades instead.
           animate={{ rotateX: opened ? -104 : 0, opacity: opened ? 0 : 1 }}
           transition={{
-            rotateX: { duration: opened ? 0.8 : 0.45, ease: [0.45, 0, 0.25, 1], delay: opened ? 0.14 : 0 },
-            opacity: { duration: opened ? 0.22 : 0.2, delay: opened ? 0.74 : 0 },
+            rotateX: {
+              duration: opened ? t.flap.duration : 0.45,
+              ease: EASE_FOLD,
+              delay: opened ? t.flap.at : 0,
+            },
+            opacity: {
+              duration: opened ? t.flapFade.duration : 0.2,
+              delay: opened ? t.flapFade.at : 0,
+            },
           }}
         />
 
@@ -206,7 +236,7 @@ export default function PacketEnvelope({
             // The seal breaks before the flap moves — a wax seal that survived the envelope
             // opening would be the confusing part.
             animate={{ opacity: opened ? 0 : 1, scale: opened ? 0.4 : 1, rotate: opened ? -25 : 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: t.seal.duration, delay: opened ? t.seal.at : 0 }}
           >
             <div
               className="bg-white/95 rounded-full flex items-center justify-center"
@@ -246,40 +276,43 @@ export default function PacketEnvelope({
           large ? "px-6 pb-7" : "px-3 pb-4"
         }`}
         // Closed, the content has to clear the seal and so sits low in the envelope. Opened,
-        // the seal is gone and the clearance with it — the padding relaxing is what makes the
-        // contents look like they rose out rather than the flap simply vanishing.
+        // the seal is gone and the clearance with it.
         //
-        // A CSS transition rather than framer: the closed value is a `calc()` mixing a
-        // width-percentage with pixels, which framer would have to interpolate numerically and
-        // cannot.
+        // This used to be a `padding-top` transition, and padding is a layout property: it
+        // reflowed the envelope's whole subtree on every frame, for 0.7s, while the flap was
+        // rotating in 3D and the confetti was in the air. The contents now rise into place
+        // under their own transform, which the compositor handles, and the geometry moves in
+        // one step underneath them where there is nothing on screen to see it.
         style={{
-          justifyContent: opened ? "center" : "flex-end",
+          justifyContent: wellOpen ? "center" : "flex-end",
           // Opened, the flap and seal are gone, but the letterhead in the top corner is not —
           // the contents still have to clear it.
-          paddingTop: opened ? (large ? 64 : 34) : contentTop,
-          transition: "padding-top 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.45s",
+          paddingTop: wellOpen ? (large ? 64 : 34) : contentTop,
         }}
       >
         {/* The note comes out first, then the money — the order you'd pull them out in. */}
         {letter && (
           <motion.div
             className={`w-full ${large ? "mb-4" : "mb-2"}`}
-            initial={false}
-            animate={opened ? { y: [30, -6, 0], opacity: [0, 1, 1] } : { y: 0, opacity: 1 }}
-            transition={{ duration: 0.75, delay: 0.5 }}
+            // Mount-based, rather than a keyframe array behind a delay. The old form left the
+            // note sitting fully visible for the whole length of its own delay and only then
+            // snapped it to invisible in order to raise it, which flashed every single time.
+            // The claim page passes a note only once the packet is open, so it mounts hidden
+            // here and rises. The create-form preview renders one on a closed envelope, where
+            // `initial={false}` leaves it at rest exactly as before.
+            initial={opened ? { y: 26, opacity: 0 } : false}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: t.letter.duration, delay: t.letter.at, ease: EASE_RISE }}
           >
             {letter}
           </motion.div>
         )}
 
-        <motion.div
-          className="w-full"
-          initial={false}
-          animate={opened ? { y: [18, -5, 0], opacity: [0, 1, 1] } : { y: 0, opacity: 1 }}
-          transition={{ duration: 0.7, delay: letter ? 0.72 : 0.6 }}
-        >
-          {children}
-        </motion.div>
+        {/* Deliberately inert. The caller owns what goes in here and owns its entrance with
+            it — the claim page remounts this content on a key, so the sealed figure and the
+            claimed one are genuinely different elements. Animating the wrapper as well is what
+            had the amount rise twice, from two files, out of step with itself. */}
+        <div className="w-full">{children}</div>
       </div>
 
       {/* Gloss sweep, on top of everything but inert. */}

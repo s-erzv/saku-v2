@@ -44,7 +44,8 @@ export async function POST(request: Request) {
     }
 
     // A wallet row can already exist from an earlier custody model — Web3Auth-era (verifier =
-    // 'saku-phone-otp') or Turnkey-era (a `turnkey_sub_org_id` and no `privy_wallet_id`).
+    // 'saku-phone-otp') or Turnkey-era, which now shows up simply as a row with no
+    // `privy_wallet_id`, the Turnkey columns having been dropped once nothing read them.
     // Creating a fresh Privy wallet and overwriting the row is a deliberate cutover, not an
     // oversight: the old key material is held by a provider this app no longer calls, so the
     // address it derived cannot be signed for any more. On testnet the balance is re-mintable;

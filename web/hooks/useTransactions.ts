@@ -5,7 +5,17 @@ import { useAuth } from './useAuth';
 
 export interface SakuTransaction {
   txHash: string;
-  type: 'transfer' | 'topup' | 'withdraw' | 'qr_payment' | 'offramp_lock' | 'offramp_settle' | 'offramp_refund';
+  type:
+    | 'transfer'
+    | 'topup'
+    | 'withdraw'
+    | 'qr_payment'
+    | 'offramp_lock'
+    | 'offramp_settle'
+    | 'offramp_refund'
+    | 'stake'
+    | 'unstake'
+    | 'stake_reward';
   status: 'pending' | 'confirmed' | 'reverted';
   /** Base units, as a string — a uint256 does not survive a JSON number. */
   amount: string | null;
