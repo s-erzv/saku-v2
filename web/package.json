@@ -45,7 +45,6 @@
     "@splidejs/react-splide": "^0.7.12",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.1",
-    "@turnkey/sdk-server": "^8.4.0",
     "@vercel/functions": "^3.9.6",
     "aos": "^2.3.4",
     "autoprefixer": "^10.4.20",

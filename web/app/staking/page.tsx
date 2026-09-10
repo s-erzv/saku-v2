@@ -95,80 +95,105 @@ export default function StakingPage() {
         </div>
 
         {status !== "connected" ? (
-          <div className="p-5 rounded-3xl bg-amber-50 border border-amber-200 flex items-start gap-3">
-            <Wallet className="w-5 h-5 text-amber-700 mt-0.5 shrink-0" />
+          // Neutral, not amber. Warm is the brand on this screen now, and a notice wearing the
+          // brand colour reads as a highlight rather than a hold-up.
+          <div className="p-5 rounded-3xl bg-black/[0.03] border border-black/8 flex items-start gap-3">
+            <Wallet className="w-5 h-5 text-black/40 mt-0.5 shrink-0" />
             <div className="space-y-1">
-              <p className="text-sm font-bold text-amber-900">Wallet not ready</p>
-              <p className="text-xs text-amber-800">Finish setting up your wallet from Home first.</p>
+              <p className="text-sm font-bold">Wallet not ready</p>
+              <p className="text-xs text-black/50">Finish setting up your wallet from Home first.</p>
             </div>
           </div>
         ) : (
           <>
+            {/* Saku's own gradient, composed from the two brand tokens rather than a third
+                copy of the hex pair. It existed in `globals.css` and was reaching exactly one
+                surface, the bottom navigation, while this screen borrowed the dark slab from
+                Home's balance card — which made Earn read as a second balance screen instead of
+                its own thing. Dark now belongs to the balance and warm belongs to Saku.
+
+                Ink is black-with-opacity, the same idiom as the rest of the app. White on a
+                #FFD364 top stop is unreadable, so the whole card flips to dark ink.
+
+                The small labels are `black/65` and not the `black/45` used elsewhere, which is
+                not a taste call: measured against the darker stop of this gradient, 45% gives a
+                contrast ratio of 2.9 where AA asks 4.5 for text this size, and 65% is the first
+                step that clears it on both stops. The large figures pass at any of these. */}
             <div
-              className="rounded-[2rem] p-6 text-white shadow-xl space-y-5"
-              style={{ background: "linear-gradient(135deg, #1f2937 0%, #0f172a 100%)" }}
+              className="rounded-[2rem] p-6 space-y-5"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--color-saku-yellow) 0%, var(--color-saku-orange) 100%)",
+                boxShadow: "0 20px 44px rgba(240, 163, 83, 0.38)",
+              }}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/65">
                     Current APY
                   </p>
                   <p className="text-4xl font-black tabular-nums mt-1">
                     {loadingInfo && !info ? "—" : `${info?.apy ?? "0.00"}${info?.apyCapped ? "%+" : "%"}`}
                   </p>
                 </div>
-                <div className="p-2.5 rounded-2xl bg-white/10">
+                <div className="p-2.5 rounded-2xl bg-black/10">
                   <TrendingUp className="w-5 h-5" />
                 </div>
               </div>
 
               {info?.apyCapped && (
-                <p className="text-[11px] text-white/40 -mt-3">
+                <p className="text-[11px] text-black/65 -mt-3">
                   Early pool — few tokens staked against the funded reward budget skews the rate
                   this high. It settles as more is staked.
                 </p>
               )}
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-black/10">
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-widest text-white/40">
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-black/65">
                     You staked
                   </p>
                   <p className="text-xl font-black tabular-nums mt-0.5">{info?.staked ?? "0"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-widest text-white/40">
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-black/65">
                     Earned
                   </p>
-                  <p className="text-xl font-black tabular-nums mt-0.5 text-emerald-400">
+                  {/* Was emerald, the one cold accent on the screen and the only place green
+                      carried meaning here. On the warm card it is simply ink like its
+                      neighbour: what makes it read as earnings is the label above it. */}
+                  <p className="text-xl font-black tabular-nums mt-0.5">
                     {info?.pending ?? "0"}
                   </p>
                 </div>
               </div>
 
-              <p className="text-[11px] text-white/40">
+              <p className="text-[11px] text-black/65">
                 Pool total {info?.totalStaked ?? "0"} USDC · {info?.rewardReserve ?? "0"} USDC of
                 rewards still funded
               </p>
+              {/* Inside the card, because it acts on the figure two lines above it. Outside, in
+                  Saku orange, it was a second full-width accent button sitting directly above a
+                  black one — two primary actions in two different colours, neither deferring to
+                  the other. White on the gradient keeps it clearly the card's own action and
+                  leaves the black button below as the screen's single primary. */}
+              {hasPending && (
+                <button
+                  onClick={async () => {
+                    const earned = info?.pending ?? "0"
+                    const hash = await claim()
+                    // Only on success; a rejected signature or a failed transaction must not
+                    // report a payout that never happened.
+                    if (hash) setClaimed(earned)
+                  }}
+                  disabled={busy}
+                  className="w-full py-3 rounded-2xl bg-white font-bold text-sm shadow-sm disabled:opacity-60 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                >
+                  {action === "claiming" && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {action === "claiming" ? "Claiming…" : `Claim ${info?.pending} USDC`}
+                </button>
+              )}
             </div>
-
-            {hasPending && (
-              <button
-                onClick={async () => {
-                  const earned = info?.pending ?? "0"
-                  const hash = await claim()
-                  // Only on success; a rejected signature or a failed transaction must not
-                  // report a payout that never happened.
-                  if (hash) setClaimed(earned)
-                }}
-                disabled={busy}
-                style={{ background: "#F0A353" }}
-                className="w-full py-3.5 rounded-2xl text-white font-bold text-sm disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-              >
-                {action === "claiming" && <Loader2 className="w-4 h-4 animate-spin" />}
-                {action === "claiming" ? "Claiming…" : `Claim ${info?.pending} USDC`}
-              </button>
-            )}
 
             <div className="flex p-1 bg-black/[0.04] rounded-2xl">
               {(["stake", "unstake"] as const).map((t) => (
@@ -232,13 +257,13 @@ export default function StakingPage() {
             </button>
 
             {claimed && !busy && (
-              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-amber-700 mt-0.5 shrink-0" />
                 <div className="space-y-0.5 min-w-0">
-                  <p className="text-sm font-bold text-emerald-900 tabular-nums">
+                  <p className="text-sm font-bold text-amber-900 tabular-nums">
                     {claimed} USDC claimed
                   </p>
-                  <p className="text-xs text-emerald-800">
+                  <p className="text-xs text-amber-800">
                     It is in your wallet balance now.
                   </p>
                 </div>

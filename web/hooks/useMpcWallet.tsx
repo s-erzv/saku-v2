@@ -32,7 +32,7 @@ interface MpcWalletContextValue {
   error: string | null;
   /** Get-or-create the wallet for the current session. */
   login: () => Promise<void>;
-  /** An ethers signer whose signing calls go through Saku's backend to Turnkey. */
+  /** An ethers signer whose signing calls go through Saku's backend to the custodian. */
   getSigner: () => Promise<AbstractSigner>;
   logout: () => void;
 }

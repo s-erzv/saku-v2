@@ -9,8 +9,8 @@ import { useMpcWallet } from "@/hooks/useMpcWallet"
  * Wallet bring-up on the home screen — and deliberately nothing else.
  *
  * There is no seed-phrase ceremony here, on purpose: the persona in PRD Section 3 has never
- * handled one, and this key is not held on-device at all. Turnkey holds it, gated by a valid
- * Saku session — passing the WhatsApp OTP is what reaches the wallet, on any device, every
+ * handled one, and this key is not held on-device at all. It is held server-side, gated by a
+ * valid Saku session — passing the WhatsApp OTP is what reaches the wallet, on any device, every
  * time. That is the Social Identity Abstraction bargain the product is built on, stated plainly
  * in the profile screen (`components/profile/wallet-security.tsx`) rather than implied.
  */

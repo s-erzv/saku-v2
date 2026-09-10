@@ -1,10 +1,11 @@
 /**
  * Wallet custody and signing, on Privy.
  *
- * Replaced `lib/turnkey.ts`, which has since been deleted — a configured but unreferenced signer
- * is a live key for a provider nothing calls. The move was forced by economics rather than
- * architecture: Turnkey's free tier allows 25 signatures a month, and a single user sending a few
- * transfers exhausts it. Privy allows 50,000.
+ * Replaced the previous custodian's module, which has since been deleted — a configured but
+ * unreferenced signer is a live key for a provider nothing calls. The move was forced by
+ * economics rather than architecture: that provider's free tier allowed 25 signatures a month,
+ * which a single user sending a few transfers exhausts. This one allows 50,000. Worth keeping in
+ * mind before picking a custodian on its API alone.
  *
  * **This is custodial, and the product copy says so.** The private key never exists inside this
  * application and cannot be extracted from the provider — but the authority to use it lives here,
@@ -138,10 +139,10 @@ function isQuotaError(error: unknown): boolean {
 /**
  * Sign an already-built transaction.
  *
- * The caller passes the RLP-serialized *unsigned* transaction, which is the shape Turnkey took
- * and therefore the shape the client already sends (`hooks/useMpcWallet.tsx`). Privy wants the
- * fields instead, so they are parsed back out here rather than changing the client's contract —
- * the browser has no business knowing which signing provider is behind this route.
+ * The caller passes the RLP-serialized *unsigned* transaction, which is what the client already
+ * sends (`hooks/useMpcWallet.tsx`) because an earlier custodian took that shape. This one wants
+ * the fields instead, so they are parsed back out here rather than changing the client's
+ * contract — the browser has no business knowing which signing provider is behind this route.
  *
  * Nothing is broadcast. The signature comes back, the client sends it.
  */

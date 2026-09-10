@@ -3,7 +3,7 @@
  * rather than for whose API returned them.
  *
  * These live apart from the provider modules because the provider is a thing this app has now
- * changed once (Turnkey -> Privy) and could change again. `/api/mpc/sign` decides what to tell
+ * changed once already and could change again. `/api/mpc/sign` decides what to tell
  * the user; it should not have to know which vendor is behind the signature to do that.
  */
 

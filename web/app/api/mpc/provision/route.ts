@@ -1,11 +1,11 @@
 /**
- * Get-or-create a user's wallet on Turnkey (replaces `/api/mpc/id-token`, see docs/mpc-setup.md).
+ * Get-or-create a user's wallet with the custodian (replaces `/api/mpc/id-token`).
  *
  * The caller must already hold a Saku session token, issued only after the WhatsApp OTP check
  * in `/api/verify-otp` — so possession of the phone number is what gates a wallet coming into
  * existence at all, same as before. What changed is what happens after that gate: instead of
  * minting a token for the browser to hand to Web3Auth, this creates (once) or looks up (every
- * time after) a Turnkey sub-organization and returns the address directly. No further round
+ * time after) the account with the custodian and returns the address directly. No further round
  * trip to a third party happens in the browser.
  */
 
@@ -44,8 +44,8 @@ export async function POST(request: Request) {
     }
 
     // A wallet row can already exist from an earlier custody model — Web3Auth-era (verifier =
-    // 'saku-phone-otp') or Turnkey-era, which now shows up simply as a row with no
-    // `privy_wallet_id`, the Turnkey columns having been dropped once nothing read them.
+    // 'saku-phone-otp') or the custody model before this one, which now shows up simply as a
+    // row with no `privy_wallet_id`, its own columns having been dropped once nothing read them.
     // Creating a fresh Privy wallet and overwriting the row is a deliberate cutover, not an
     // oversight: the old key material is held by a provider this app no longer calls, so the
     // address it derived cannot be signed for any more. On testnet the balance is re-mintable;
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
           privy_wallet_id: wallet.walletId,
           factors_enrolled: 1,
           // A new Privy wallet is a different on-chain account with zero drip history of its
-          // own — without resetting these, a row that already existed (Web3Auth- or Turnkey-era)
+          // own — without resetting these, a row left by either earlier custody model
           // hands the new address someone else's drip count and cooldown,
           // capping a wallet that has never actually received gas.
           gas_drip_count: 0,
