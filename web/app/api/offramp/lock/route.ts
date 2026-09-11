@@ -318,6 +318,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This lock was not made by your wallet' }, { status: 403 });
     }
 
+    // The escrow contract will lock any ERC20 it is pointed at, and this route decides how much
+    // fiat the lock is worth. Between those two facts sat a single check in another file:
+    // `lib/tx-policy.ts` refuses to sign a `lockForOfframp` whose token is not USDC. That check
+    // is real and it holds, but it is one line in a module written for a different purpose, and
+    // it is the only thing that stops a worthless token being quoted into a payout. The route
+    // that owes the money should not be taking someone else's word for what was locked.
+    //
+    // Cheap, and it fails the request rather than the lock: the tokens stay in the escrow and
+    // `refund` frees them once the rate window closes, exactly as with any other mismatch.
+    if (token !== getUsdcAddress().toLowerCase()) {
+      return NextResponse.json(
+        { error: 'That lock holds a token Saku does not off-ramp.' },
+        { status: 400 }
+      );
+    }
+
     if (!Number.isFinite(claimedNetUsdc) || claimedNetUsdc <= 0) {
       return NextResponse.json({ error: 'Missing the intended delivery amount' }, { status: 400 });
     }
