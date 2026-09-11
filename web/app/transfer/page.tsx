@@ -11,12 +11,13 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { parseUnits } from "ethers"
-import { ArrowLeft, ArrowLeftRight, CheckCircle, ExternalLink, Loader2, Receipt, Smartphone, User, Wallet } from "lucide-react"
+import { ArrowLeft, ArrowLeftRight, ExternalLink, Loader2, Receipt, Smartphone, Wallet } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
 import { useTransfer } from "@/hooks/useTransfer"
 import ProfileAvatar from "@/components/ui/profile-avatar"
+import SakuCelebration from "@/components/ui/saku-celebration"
 import { useCurrencyToggleAmount } from "@/hooks/useCurrencyToggleAmount"
 import { type SakuTransaction } from "@/hooks/useTransactions"
 import { formatUsdc, transferFee } from "@/lib/fees"
@@ -99,9 +100,9 @@ export default function TransferPage() {
     return (
       <div className="min-h-dvh bg-white flex items-center justify-center p-6 font-sans">
         <div className="w-full max-w-sm text-center space-y-6 animate-in zoom-in-95 duration-300">
-          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle className="w-8 h-8 text-emerald-600" />
-          </div>
+          {/* Saku, rather than the emerald tick this used to end on — which was the same mark a
+              form shows for a valid email address, put on the best moment in a wallet. */}
+          <SakuCelebration />
           <div className="space-y-1">
             <h1 className="text-2xl font-black tracking-tight">Transfer sent</h1>
             <p className="text-sm text-black/45">

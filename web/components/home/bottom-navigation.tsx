@@ -5,6 +5,7 @@ import { Home, QrCode, Receipt, TrendingUp, User } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { useAuth } from "@/hooks/useAuth"
+import PaySheet from "@/components/pay/pay-sheet"
 
 type NavItem = {
   label: string
@@ -139,10 +140,7 @@ function NavItemButton({ item }: { item: NavItem }) {
   )
 }
 
-function PayButton() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const active = pathname === "/pay"
+function PayButton({ active, onOpen }: { active: boolean; onOpen: () => void }) {
   const [pressed, setPressed] = useState(false)
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -172,7 +170,7 @@ function PayButton() {
         />
 
         <button
-          onClick={() => router.push("/pay")}
+          onClick={onOpen}
           onPointerDown={handlePointerDown}
           aria-label="Pay"
           className="relative flex items-center justify-center rounded-full border-[5px] border-white transition-all duration-200 select-none"
@@ -214,9 +212,38 @@ function PayButton() {
   )
 }
 
-export default function BottomNavigation() {
+interface BottomNavigationProps {
+  /**
+   * Start with the Pay sheet already open. Only `/pay` passes it, so that the path still works
+   * as a destination — links already sent, a bookmark, anything deep-linking into paying — with
+   * the bar under it and no second copy of the sheet's UI kept alive to drift out of step.
+   *
+   * A prop and not a query parameter read on mount: the server and the client are handed the
+   * same value, so there is no hydration mismatch and no effect writing state on arrival.
+   */
+  initialPayOpen?: boolean
+}
+
+export default function BottomNavigation({ initialPayOpen = false }: BottomNavigationProps) {
+  // Pay is a sheet over the current screen rather than a route of its own, so the bar, and the
+  // screen behind it, both stay put — see `components/pay/pay-sheet.tsx`. Because this bar is
+  // rendered by every screen that has one, the sheet is reachable from all of them without any
+  // of them knowing about it.
+  const [payOpen, setPayOpen] = useState(initialPayOpen)
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const closePay = () => {
+    setPayOpen(false)
+    // Dismissing the sheet on `/pay` would otherwise leave the user on a page that is nothing
+    // but a backdrop for it.
+    if (pathname === "/pay") router.replace("/home")
+  }
+
   return (
     <>
+      <PaySheet open={payOpen} onClose={closePay} />
+
       <style>{`
         @keyframes ripple {
           from { transform: scale(0); opacity: 0.5; }
@@ -262,7 +289,7 @@ export default function BottomNavigation() {
               <NavItemButton key={item.path} item={item} />
             ))}
 
-            <PayButton />
+            <PayButton active={payOpen} onOpen={() => setPayOpen(true)} />
 
             {rightItems.map((item) => (
               <NavItemButton key={item.path} item={item} />

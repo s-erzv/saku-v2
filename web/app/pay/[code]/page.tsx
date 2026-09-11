@@ -9,7 +9,8 @@
 
 import { use, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, CheckCircle, ExternalLink, Loader2, QrCode } from "lucide-react"
+import { ArrowLeft, ExternalLink, Loader2, QrCode } from "lucide-react"
+import SakuCelebration from "@/components/ui/saku-celebration"
 import { useAuth } from "@/hooks/useAuth"
 import { formatUsdc, transferFee } from "@/lib/fees"
 import { useLocalCurrency, formatLocal } from "@/hooks/useLocalCurrency"
@@ -58,9 +59,7 @@ export default function PayRequestPage({ params }: { params: Promise<{ code: str
     return (
       <div className="min-h-dvh bg-white flex items-center justify-center p-6 font-sans">
         <div className="w-full max-w-sm text-center space-y-6 animate-in zoom-in-95 duration-300">
-          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle className="w-8 h-8 text-emerald-600" />
-          </div>
+          <SakuCelebration />
           <div className="space-y-1.5">
             <h1 className="text-2xl font-black tracking-tight">Paid</h1>
             <p className="text-sm text-black/50">
