@@ -22,13 +22,16 @@
  * one this is. It stays unedited in all three cases — changing it is a recovery, not a setting.
  */
 
-import { useEffect, useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { Check, Copy, Loader2, Pencil, Smartphone, User, Wallet, X } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/hooks/useAuth"
 import { formatOwnNumber, readOwnNumber } from "@/lib/own-number"
 import SettingsGroup from "@/components/profile/settings-group"
 import SettingsRow from "@/components/profile/settings-row"
+
+/** Module-level so its identity is stable; a new function per render would resubscribe forever. */
+const subscribeToNothing = () => () => {}
 
 export default function AccountDetails() {
   const { isAuthenticated, user, wallet, refreshUser } = useAuth()
@@ -48,13 +51,19 @@ export default function AccountDetails() {
       ? `+${user.phone_dial_code} ••• ••• ${user.phone_last4}`
       : null
 
-  // Read after mount, never during render: `localStorage` does not exist on the server, and a
-  // value that differs between the server's HTML and the client's would be a hydration mismatch.
-  const [ownNumber, setOwnNumber] = useState<string | null>(null)
-  useEffect(() => {
-    const stored = readOwnNumber(user?.phone_hash)
-    setOwnNumber(stored ? formatOwnNumber(stored) : null)
-  }, [user?.phone_hash])
+  // `localStorage` through `useSyncExternalStore`, which is what it is for: the server snapshot
+  // is null and the client's reads the store, so the first client render agrees with the HTML
+  // and there is no hydration mismatch and no setState-in-an-effect to cascade a second render.
+  // Nothing ever changes this value inside a session — it is written once, at verification, on
+  // the sign-in screen — so the subscribe function has nothing to listen to.
+  const ownNumber = useSyncExternalStore(
+    subscribeToNothing,
+    () => {
+      const stored = readOwnNumber(user?.phone_hash)
+      return stored ? formatOwnNumber(stored) : null
+    },
+    () => null
+  )
 
   const saveName = async () => {
     if (!isAuthenticated) return
