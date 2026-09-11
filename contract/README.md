@@ -48,11 +48,25 @@ Machine-readable copy: [`deployments/bscTestnet.json`](deployments/bscTestnet.js
 
 | Contract | Address |
 |---|---|
-| `SakuOfframpEscrow` | [`0xe9Bc98E5Ac1942AbE4E79A4219868FF0351579A0`](https://testnet.bscscan.com/address/0xe9Bc98E5Ac1942AbE4E79A4219868FF0351579A0) |
+| `SakuOfframpEscrow` | [`0xb69108b86a479Ff2B46cc8B80c9B32168C8c3a6c`](https://testnet.bscscan.com/address/0xb69108b86a479Ff2B46cc8B80c9B32168C8c3a6c) |
+| `SakuStaking` | [`0x7B4Fc2362526AF69655D0C1B41bAD5957a76D9fa`](https://testnet.bscscan.com/address/0x7B4Fc2362526AF69655D0C1B41bAD5957a76D9fa) |
 | `MockStableToken` (mBUSD, 18 dec) | [`0xD12196E766F86F6Fc352d5CECe7637bCd9026a83`](https://testnet.bscscan.com/address/0xD12196E766F86F6Fc352d5CECe7637bCd9026a83) |
 | `MockUSDC` (USDC, 6 dec) | [`0x3d2937A6cDb76a1B199b87302D112D584795d3b1`](https://testnet.bscscan.com/address/0x3d2937A6cDb76a1B199b87302D112D584795d3b1) |
 
 Owner and `settler` are both the deployer `0x4B718eE56D2217fcd4315433B32C95DdC220b2AB`.
+
+The escrow and the staking pool were both redeployed on 2026-09-11. The superseded addresses are
+recorded under `supersededContracts` in the JSON above, and they are not empty: the old escrow
+still holds an unsettled lock, and the old staking pool still holds user stake that only its own
+stakers can withdraw. Nothing migrates between deployments.
+
+### The escrow allows no token until told to
+
+`lockForOfframp` reverts with `TokenNotAllowed` for any token the owner has not passed to
+`setTokenAllowed`. A fresh deployment therefore refuses every lock, which is deliberate — an
+escrow that decides what it holds should not inherit that decision from a check in the backend.
+`scripts/deployOfframpEscrow.ts` allows `MOCK_USDC_ADDRESS` at deploy time if it is set, and
+warns loudly if it is not.
 
 ### Liquidity is a prerequisite for settlement
 
