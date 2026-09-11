@@ -168,6 +168,20 @@ export default function OfframpPage() {
       ? `${banks.find((b) => b.code === bankCode)?.name ?? bankCode} •••${accountNumber.slice(-4)}`
       : `${countryCode}${phone}`
 
+  /**
+   * The destination as it goes onto the receipt, rather than as it appears on the screen the
+   * sender is looking at.
+   *
+   * The bank form is already masked to its last four. The wallet form is the whole phone number,
+   * which is fine on a confirmation nobody else sees and wrong on a receipt — a receipt is a
+   * thing people photograph and forward, and the rest of this app goes to considerable lengths
+   * never to write a phone number down.
+   */
+  const receiptDestination =
+    rail === "bank"
+      ? destinationLabel
+      : `${countryCode} ••• ••• ${phone.replace(/\D/g, "").slice(-4)}`
+
   const formatFiat = (value: number | null | undefined) =>
     quote && typeof value === "number" && Number.isFinite(value)
       ? `${quote.symbol}${value.toLocaleString(quote.locale, {
@@ -224,7 +238,22 @@ export default function OfframpPage() {
           // to name. The receipt distinguishes off-ramp by type instead.
           counterpartyName: null,
           counterpartyIsUser: false,
-          context: null,
+          // The half of a cash-out that is actually worth proving to someone: what arrived, in
+          // what currency, on which rail, under whose reference. None of it is on-chain, so the
+          // receipt cannot derive any of it — it is handed over here.
+          context: {
+            kind: "offramp_payout",
+            fiatAmount:
+              typeof result.fiatAmount === "number" ? formatFiat(result.fiatAmount) : undefined,
+            rate: quote?.fxRate
+              ? `1 USDC = ${formatFiat(quote.fxRate)}`
+              : undefined,
+            rail: RAILS.find((r) => r.id === rail)?.label,
+            destination: receiptDestination || undefined,
+            payoutReference: result.payoutReference,
+            provider: result.payoutProvider,
+            simulated: result.fiatSimulated !== false,
+          },
           feeAmount: parseUnits((quote?.feeUsdc ?? 0).toFixed(6), 6).toString(),
         }
       : null
@@ -248,12 +277,24 @@ export default function OfframpPage() {
             )}
           </div>
 
-          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5">
-            <p className="text-[11px] leading-relaxed text-amber-900">
-              The swap is real on-chain. The payout is{" "}
-              <span className="font-bold">simulated</span> — no money reached that number.
-            </p>
-          </div>
+          {/* Said only when it is true. This used to print on every successful cash-out,
+              including the Indonesian e-wallet ones that really do go out through Xendit — so a
+              genuine payout was telling its own recipient that no money had moved. */}
+          {result.fiatSimulated !== false ? (
+            <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5">
+              <p className="text-[11px] leading-relaxed text-amber-900">
+                The swap is real on-chain. The payout is{" "}
+                <span className="font-bold">simulated</span> — no money reached that number.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5">
+              <p className="text-[11px] leading-relaxed text-emerald-900">
+                Paid out through <span className="font-bold">Xendit</span>, the licensed party
+                that moved the rupiah. Their reference is on the receipt.
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             {result.settleTxHash && (

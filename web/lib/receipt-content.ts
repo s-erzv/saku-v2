@@ -225,6 +225,25 @@ export function buildReceipt(tx: SakuTransaction): ReceiptContent {
   rows.push({ label: 'Ref', value: shorten(tx.txHash), mono: true });
   rows.push({ label: 'Network', value: 'BSC Testnet' });
 
+  // The fiat leg of an off-ramp. Everything above this line describes USDC leaving a wallet,
+  // which is the half of a cash-out nobody needs to prove to anybody. These rows are the half
+  // they do: what arrived, where, and under whose reference.
+  //
+  // `Payout` names the licensed party that actually moved the money, and says so in plain words
+  // when that party was nobody. A proof of transfer that cannot tell those two apart is not a
+  // proof of anything.
+  if (tx.context?.kind === 'offramp_payout') {
+    const payout = tx.context;
+    if (payout.fiatAmount) rows.push({ label: 'Received', value: payout.fiatAmount });
+    if (payout.rate) rows.push({ label: 'Rate', value: payout.rate });
+    if (payout.rail) rows.push({ label: 'Sent to', value: payout.rail });
+    if (payout.destination) rows.push({ label: 'Account', value: payout.destination, mono: true });
+    if (payout.provider) rows.push({ label: 'Payout', value: payout.provider });
+    if (payout.payoutReference) {
+      rows.push({ label: 'Payout ref', value: shorten(payout.payoutReference), mono: true });
+    }
+  }
+
   if (described.detail) {
     rows.push({
       label: tx.context?.kind === 'split_bill' ? 'Bill' : 'Packet',

@@ -53,7 +53,35 @@ export interface SakuTransaction {
 export type TransactionContext =
   | { kind: 'packet_send'; code?: string; slots?: number }
   | { kind: 'packet_claim'; code?: string }
-  | { kind: 'split_bill'; title?: string };
+  | { kind: 'split_bill'; title?: string }
+  /**
+   * The fiat leg of an off-ramp, for the receipt.
+   *
+   * An off-ramp receipt used to describe only the on-chain half — the USDC that left, its hash,
+   * the network — which is the half the person cashing out cares least about. What they need to
+   * show anyone is the other half: how much local currency arrived, where, and under whose
+   * reference. None of that is on-chain, so none of it could be derived, and it is carried here.
+   *
+   * Client-side only. Nothing writes this to `transactions`; the off-ramp screen builds it from
+   * the request it just polled.
+   */
+  | {
+      kind: 'offramp_payout';
+      /** Already formatted in the recipient's currency — the receipt does not convert. */
+      fiatAmount?: string;
+      /** "1 USDC = Rp 15,900", the rate the lock was struck at. */
+      rate?: string;
+      /** "GoPay", "Bank transfer" — the rail as the user picked it. */
+      rail?: string;
+      /** Masked. A receipt is a thing people photograph and send on. */
+      destination?: string;
+      /** Xendit's disbursement id, or the `MOCK-` reference when nothing moved. */
+      payoutReference?: string;
+      /** Who moved it. See `lib/offramp-payout.ts`. */
+      provider?: string;
+      /** True when no money actually moved. The receipt says so, in those words. */
+      simulated?: boolean;
+    };
 
 export function useTransactions(limit = 10) {
   const { isAuthenticated } = useAuth();

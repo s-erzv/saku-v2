@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getSession, unauthorized } from '@/lib/session';
+import { isSimulatedPayout, payoutProvider } from '@/lib/offramp-payout';
 import { CHAIN_ID } from '@/lib/chain';
 import { refundOfframp } from '@/lib/escrow';
 
@@ -74,9 +75,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ requ
     return NextResponse.json({
       ...row,
       // The distinction the PRD insists on: `status` describes what the chain did, `fiat_status`
-      // describes a simulation. Collapsing them is how a demo starts implying it moved rupiah.
+      // describes the payout. Collapsing them is how a demo starts implying it moved rupiah.
+      //
+      // `fiatSimulated` was hardcoded `true`, which stopped being honest the moment real Xendit
+      // disbursements started going out for Indonesian e-wallets: a genuine payout was being
+      // reported to its own recipient as a simulation. It is read off the reference now — see
+      // `lib/offramp-payout.ts` for why the reference is what decides it.
       onChainReal: true,
-      fiatSimulated: true,
+      fiatSimulated: isSimulatedPayout(row.mock_disbursement_reference),
+      payoutReference: row.mock_disbursement_reference,
+      payoutProvider: payoutProvider(row.mock_disbursement_reference),
       refundable:
         row.status === 'locked' && new Date(row.rate_expires_at).getTime() < Date.now(),
     });

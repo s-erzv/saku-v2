@@ -57,6 +57,14 @@ export interface OfframpResult {
   requestId: string;
   settleTxHash?: string;
   fiatAmount?: number;
+  /**
+   * The fiat leg, for the receipt. Xendit's disbursement id where a real payout went out, the
+   * `MOCK-` reference where nothing moved — `lib/offramp-payout.ts` is what tells those apart,
+   * and the server has already done so by the time this arrives.
+   */
+  payoutReference?: string;
+  payoutProvider?: string;
+  fiatSimulated?: boolean;
   currency?: string;
   refundableAfter?: string;
 }
@@ -242,6 +250,11 @@ export function useOfframp() {
                 requestId,
                 settleTxHash: statusData.settle_tx_hash,
                 fiatAmount: parsedFiat,
+                payoutReference: statusData.payoutReference ?? undefined,
+                payoutProvider: statusData.payoutProvider ?? undefined,
+                // Defaulted to simulated rather than to real: a screen that overstates a payout
+                // is making a false claim about someone's money.
+                fiatSimulated: statusData.fiatSimulated !== false,
               });
               setPhase('done');
               return statusData;
