@@ -55,6 +55,14 @@ contract SakuOfframpEscrow is Ownable, ReentrancyGuard {
     address public stableToken;
 
     mapping(bytes32 => OfframpRequest) public requests;
+
+    /// @notice Tokens this escrow will accept for an off-ramp. Empty by default, so a fresh
+    ///         deployment locks nothing until the owner says what it handles.
+    /// @dev `lockForOfframp` used to take any ERC20 at all. Nothing on-chain stopped a caller
+    ///      locking a token they had minted themselves, and the only thing that did stop it was
+    ///      a check in the backend's signing policy — off-chain, in a different codebase, and
+    ///      one line. A contract that decides what it holds should not delegate that decision.
+    mapping(address => bool) public offrampAllowed;
     uint256 private _nonce;
 
     /// @dev PRD Section 5.1 step 4: "rate dikunci dengan expiry singkat (30-60 detik)".
@@ -77,6 +85,7 @@ contract SakuOfframpEscrow is Ownable, ReentrancyGuard {
     );
     event OfframpSettled(bytes32 indexed requestId, uint256 amountIn, uint256 amountOut);
     event OfframpRefunded(bytes32 indexed requestId, address indexed user, uint256 amount);
+    event TokenAllowanceUpdated(address indexed token, bool allowed);
     event SettlerUpdated(address indexed oldSettler, address indexed newSettler);
     event StableTokenUpdated(address indexed oldToken, address indexed newToken);
 
@@ -85,6 +94,7 @@ contract SakuOfframpEscrow is Ownable, ReentrancyGuard {
     // ============================================================
 
     error InvalidAddress();
+    error TokenNotAllowed();
     error InvalidAmount();
     error InvalidExpiry();
     error RequestNotFound();
@@ -166,6 +176,7 @@ contract SakuOfframpEscrow is Ownable, ReentrancyGuard {
         uint256 rateExpiry
     ) external nonReentrant returns (bytes32 requestId) {
         if (token == address(0)) revert InvalidAddress();
+        if (!offrampAllowed[token]) revert TokenNotAllowed();
         if (amount == 0) revert InvalidAmount();
         if (rateExpiry < MIN_RATE_EXPIRY || rateExpiry > MAX_RATE_EXPIRY) revert InvalidExpiry();
 
@@ -210,6 +221,12 @@ contract SakuOfframpEscrow is Ownable, ReentrancyGuard {
         }
 
         uint256 amount = req.amount;
+        // The rate-lock deadline, not `block.timestamp`. Passing the current block's own
+        // timestamp as a swap deadline is a deadline that can never be missed: whenever the
+        // transaction is mined, it equals the time it is checked against. It reads like
+        // protection and provides none. This request already carries a real expiry, checked a
+        // few lines above, so the swap can be held to the same one.
+        uint256 swapDeadline = req.deadline;
         req.status = Status.Settled;
 
         IERC20(req.token).forceApprove(address(pancakeRouter), amount);
@@ -218,7 +235,7 @@ contract SakuOfframpEscrow is Ownable, ReentrancyGuard {
             minAmountOut,
             path,
             owner(),
-            block.timestamp
+            swapDeadline
         );
         amountOut = amounts[amounts.length - 1];
 
@@ -252,6 +269,15 @@ contract SakuOfframpEscrow is Ownable, ReentrancyGuard {
         if (newSettler == address(0)) revert InvalidAddress();
         emit SettlerUpdated(settler, newSettler);
         settler = newSettler;
+    }
+
+    /// @notice Allow or stop allowing a token for off-ramps.
+    /// @dev Deliberately not in the constructor: a deployment that has not been told what it
+    ///      handles should refuse everything rather than guess.
+    function setTokenAllowed(address token, bool allowed) external onlyOwner {
+        if (token == address(0)) revert InvalidAddress();
+        offrampAllowed[token] = allowed;
+        emit TokenAllowanceUpdated(token, allowed);
     }
 
     function setStableToken(address newStableToken) external onlyOwner {

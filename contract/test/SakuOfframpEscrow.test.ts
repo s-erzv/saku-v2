@@ -52,6 +52,10 @@ async function deployFixture() {
   // Fund the mock router so it can pay out the stable-token leg of swaps.
   await stableToken.mint(await router.getAddress(), ethers.parseUnits("500000", 18));
 
+  // The escrow accepts nothing until the owner says what it handles, so every test that locks
+  // has to opt the token in first. That is the point of the allowlist, not an inconvenience.
+  await escrow.setTokenAllowed(await lockToken.getAddress(), true);
+
   // Give the user tokens to lock and pre-approve the escrow.
   await lockToken.transfer(user.address, ethers.parseUnits("1000", 6));
   await lockToken.connect(user).approve(await escrow.getAddress(), ethers.MaxUint256);
@@ -222,6 +226,54 @@ describe("SakuOfframpEscrow", function () {
     const [price, decimals] = await escrow.getLatestBnbUsdPrice();
     expect(price).to.equal(60000000000n);
     expect(decimals).to.equal(8);
+  });
+
+  it("refuses a token the owner has not allowed", async () => {
+    const { user, escrow } = await deployFixture();
+
+    // A token the attacker minted themselves. Before the allowlist this locked fine, and the
+    // only thing between it and a fiat payout was a check in the backend's signing policy.
+    const MockUSDC = await ethers.getContractFactory("MockUSDC");
+    const rogue = await MockUSDC.deploy(ethers.parseUnits("1000000", 6));
+    await rogue.transfer(user.address, LOCK_AMOUNT);
+    await rogue.connect(user).approve(await escrow.getAddress(), ethers.MaxUint256);
+
+    await expect(
+      escrow
+        .connect(user)
+        .lockForOfframp(LOCK_AMOUNT, await rogue.getAddress(), recipientHash("+62811"), RATE_EXPIRY)
+    ).to.be.revertedWithCustomError(escrow, "TokenNotAllowed");
+  });
+
+  it("lets the owner allow a token and take the allowance back", async () => {
+    const { owner, user, other, escrow } = await deployFixture();
+
+    const MockUSDC = await ethers.getContractFactory("MockUSDC");
+    const second = await MockUSDC.deploy(ethers.parseUnits("1000000", 6));
+    const address = await second.getAddress();
+    await second.transfer(user.address, LOCK_AMOUNT * 2n);
+    await second.connect(user).approve(await escrow.getAddress(), ethers.MaxUint256);
+
+    await expect(escrow.connect(owner).setTokenAllowed(address, true))
+      .to.emit(escrow, "TokenAllowanceUpdated")
+      .withArgs(address, true);
+    expect(await escrow.offrampAllowed(address)).to.equal(true);
+
+    await escrow
+      .connect(user)
+      .lockForOfframp(LOCK_AMOUNT, address, recipientHash("+62811"), RATE_EXPIRY);
+
+    await escrow.connect(owner).setTokenAllowed(address, false);
+    await expect(
+      escrow
+        .connect(user)
+        .lockForOfframp(LOCK_AMOUNT, address, recipientHash("+62811"), RATE_EXPIRY)
+    ).to.be.revertedWithCustomError(escrow, "TokenNotAllowed");
+
+    // And it stays the owner's decision to make.
+    await expect(
+      escrow.connect(other).setTokenAllowed(address, true)
+    ).to.be.revertedWithCustomError(escrow, "OwnableUnauthorizedAccount");
   });
 
   it("lets the owner rotate the settler and stable token", async function () {

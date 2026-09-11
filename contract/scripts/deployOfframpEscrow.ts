@@ -21,6 +21,9 @@ async function main() {
   const priceFeed = process.env.CHAINLINK_BNBUSD_FEED || DEFAULT_CHAINLINK_BNBUSD_TESTNET;
   const stableToken = process.env.STABLE_TOKEN_ADDRESS;
   const settler = process.env.SETTLER_ADDRESS || deployer.address;
+  // The escrow accepts no token until it is told which. Without this a fresh deployment refuses
+  // every lock, which is the right default but a confusing one to discover by hand.
+  const offrampToken = process.env.MOCK_USDC_ADDRESS || process.env.USDC_ADDRESS;
 
   if (!stableToken) {
     throw new Error(
@@ -38,12 +41,25 @@ async function main() {
   await escrow.waitForDeployment();
 
   const address = await escrow.getAddress();
+
+  if (offrampToken) {
+    const tx = await escrow.setTokenAllowed(offrampToken, true);
+    await tx.wait();
+    console.log("Allowed for off-ramp:", offrampToken);
+  } else {
+    console.warn(
+      "\n⚠️  MOCK_USDC_ADDRESS not set, so no token is allowed yet and every lock will revert " +
+        "with TokenNotAllowed.\n    Run setTokenAllowed(<token>, true) as the owner before using " +
+        "this deployment."
+    );
+  }
+
   console.log("-----------------------------------------");
   console.log(`✅ SakuOfframpEscrow deployed: ${address}`);
   console.log(`🔗 View on BSCScan: https://testnet.bscscan.com/address/${address}`);
   console.log("-----------------------------------------");
   console.log("\n📋 Add to your web/.env:");
-  console.log(`NEXT_PUBLIC_SAKU_ESCROW_ADDRESS=${address}`);
+  console.log(`NEXT_PUBLIC_ESCROW_ADDRESS=${address}`);
 }
 
 main().catch((error) => {
