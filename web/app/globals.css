@@ -254,3 +254,35 @@
     animation: none;
   }
 }
+
+/* Aurora — the drift behind Saku's glass surfaces (see components/ui/aurora-backdrop.tsx).
+   Three periods that do not divide into each other, so the three blobs never resynchronise and
+   the loop has no visible seam. Transform only: this runs the whole time the home screen is
+   open, and anything that touches layout or paint here costs a frame budget on a phone. */
+@keyframes aurora-drift-a {
+  0%, 100% { transform: translate3d(-6%, -4%, 0) scale(1); }
+  50%      { transform: translate3d(9%, 7%, 0) scale(1.12); }
+}
+
+@keyframes aurora-drift-b {
+  0%, 100% { transform: translate3d(8%, 6%, 0) scale(1.1); }
+  50%      { transform: translate3d(-7%, -7%, 0) scale(0.95); }
+}
+
+@keyframes aurora-drift-c {
+  0%, 100% { transform: translate3d(4%, 9%, 0) scale(0.96); }
+  50%      { transform: translate3d(-6%, -8%, 0) scale(1.14); }
+}
+
+.animate-aurora-a { animation: aurora-drift-a 19s ease-in-out infinite; }
+.animate-aurora-b { animation: aurora-drift-b 23s ease-in-out infinite; }
+.animate-aurora-c { animation: aurora-drift-c 31s ease-in-out infinite; }
+
+/* Stand still, but stay coloured: the glass in front still needs something to refract. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora-a,
+  .animate-aurora-b,
+  .animate-aurora-c {
+    animation: none;
+  }
+}

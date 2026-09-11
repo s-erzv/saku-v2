@@ -9,38 +9,48 @@
  * What changed again since: the token is **not returned in the response body**. It is set as an
  * httpOnly cookie, so no page script ever holds it and no script injection can lift it. See
  * `lib/session.ts`.
+ *
+ * Why a failed code failed is now said out loud, within limits. A stale code says it is stale
+ * rather than sending someone to retype the same digits until the attempt cap locks them out,
+ * and a wrong code says how many tries are left. Expired and never-requested still answer
+ * identically, which is what stops this being a probe for whether a login is in flight. The
+ * whole argument is in `lib/otp-message.ts`.
  */
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { hashPhone, InvalidPhoneNumberError } from '@/lib/phone';
+import { CURRENT_PHONE_HASH_VERSION, hashPhone, InvalidPhoneNumberError, phoneHint } from '@/lib/phone';
+import { findUserByPhone, upgradePhoneHashIfNeeded } from '@/lib/phone-identity';
 import { countryFromDialCode } from '@/lib/currency';
-import { otpMatches, isWellFormedOtp, OTP_MAX_ATTEMPTS } from '@/lib/otp';
+import { isWellFormedOtp } from '@/lib/otp';
+import { consumeOtpChallenge, type OtpFailureReason } from '@/lib/otp-challenge';
+import { MALFORMED_OTP, otpFailureMessage } from '@/lib/otp-message';
 import { generateToken } from '@/lib/jwt';
 import { setSessionCookie } from '@/lib/session';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 import { clientKey } from '@/lib/request-meta';
 import { logAuthEvent } from '@/lib/audit-log';
 
-/**
- * One message for every failure mode: wrong code, expired code, no code ever requested,
- * attempts exhausted. Distinguishing them tells an attacker which numbers are worth attacking
- * and when a fresh code is in flight.
- */
-const INVALID_OTP = { error: 'Verification code is incorrect or has expired', code: 'INVALID_OTP' };
 
 export async function POST(request: Request) {
   let phoneHash: string;
   let otp: string;
   let countryCode: string;
+  // Held past the parse because this is the only point in the system where a plaintext number
+  // exists. The version 1 to version 2 hash migration below cannot run without it, and there is
+  // no later opportunity: the number is never written down.
+  let rawPhone: string;
+  let dialCode: string;
 
   try {
     const body = await request.json();
     if (!isWellFormedOtp(body.otp)) {
-      return NextResponse.json(INVALID_OTP, { status: 400 });
+      return NextResponse.json(MALFORMED_OTP, { status: 400 });
     }
     otp = body.otp;
-    phoneHash = hashPhone(body.phone, body.countryCode || '62');
+    rawPhone = body.phone;
+    dialCode = body.countryCode || '62';
+    phoneHash = hashPhone(body.phone, dialCode);
     // The dialing prefix is the only signal Saku has for where a user is, and the country
     // decides which currency they are later billed in (PRD Section 6). Recorded once, at
     // signup; it was defaulting to 'ID' for everyone before.
@@ -49,7 +59,7 @@ export async function POST(request: Request) {
     if (error instanceof InvalidPhoneNumberError) {
       return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 });
     }
-    return NextResponse.json(INVALID_OTP, { status: 400 });
+    return NextResponse.json(MALFORMED_OTP, { status: 400 });
   }
 
   // Two limits, because they stop different things. The IP bucket slows one machine sweeping many
@@ -63,89 +73,102 @@ export async function POST(request: Request) {
   try {
     const supabase = getSupabaseAdmin();
 
-    const { data: challenge, error: fetchError } = await supabase
-      .from('otp_challenges')
-      .select('id, code_hmac, attempt_count')
-      .eq('phone_hash', phoneHash)
-      .is('consumed_at', null)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // The attempt cap, the single-use burn, the race handling and the expiry check all live in
+    // `lib/otp-challenge.ts`. This route used to carry its own copy of every one of them, which
+    // is the duplication that module was extracted to end: recovery got the expiry fix and
+    // sign-in would not have.
+    const consumed = await consumeOtpChallenge(supabase, phoneHash, otp);
 
-    if (fetchError) throw fetchError;
-    if (!challenge) return NextResponse.json(INVALID_OTP, { status: 400 });
-
-    if (challenge.attempt_count >= OTP_MAX_ATTEMPTS) {
-      await supabase
-        .from('otp_challenges')
-        .update({ consumed_at: new Date().toISOString() })
-        .eq('id', challenge.id);
-      return NextResponse.json(INVALID_OTP, { status: 400 });
-    }
-
-    // Count the attempt before checking the code, and make the write conditional on the value
-    // we read. If two requests race, only one increment lands and the loser is rejected — so
-    // the cap cannot be bypassed by firing guesses in parallel. v1 had no persistent counter at
-    // all: its limiter was an in-process Map, which on serverless means a fresh, empty limit
-    // for every cold start and every concurrent instance.
-    const { data: claimed, error: claimError } = await supabase
-      .from('otp_challenges')
-      .update({ attempt_count: challenge.attempt_count + 1 })
-      .eq('id', challenge.id)
-      .eq('attempt_count', challenge.attempt_count)
-      .is('consumed_at', null)
-      .select('id')
-      .maybeSingle();
-
-    if (claimError) throw claimError;
-    if (!claimed) return NextResponse.json(INVALID_OTP, { status: 400 });
-
-    if (!otpMatches(otp, phoneHash, challenge.code_hmac)) {
+    if (!consumed.ok) {
       // The one event worth watching for a run of. Three of these against one number, over and
       // over, is what a code being guessed looks like from the outside.
       await logAuthEvent(request, {
         type: 'otp_verify_failed',
         phoneHash,
-        metadata: { attempt: challenge.attempt_count + 1 },
+        metadata: { attempt: consumed.attempt, reason: consumed.reason },
       });
-      return NextResponse.json(INVALID_OTP, { status: 400 });
+      return NextResponse.json(
+        otpFailureMessage(consumed.reason as OtpFailureReason, consumed.attemptsLeft),
+        { status: 400 }
+      );
     }
 
-    // Single-use: burn it before doing anything else, so a replay of the same request cannot
-    // ride the same challenge.
-    await supabase
-      .from('otp_challenges')
-      .update({ consumed_at: new Date().toISOString() })
-      .eq('id', challenge.id);
+    // Tries the peppered hash first and falls back to the unkeyed one, because an account that
+    // has not signed in since the pepper landed is still filed under version 1 — and nothing
+    // could have rewritten it, since its number was never stored.
+    const lookup = await findUserByPhone<{ id: string; token_version: number }>(
+      supabase,
+      rawPhone,
+      dialCode,
+      'id, token_version'
+    );
 
-    const { data: existing, error: lookupError } = await supabase
-      .from('users')
-      .select('id, token_version')
-      .eq('phone_hash', phoneHash)
-      .maybeSingle();
+    const existing = lookup.user;
+    const isNewUser = !existing;
+    let userId: string;
+    let tokenVersion: number;
 
-    if (lookupError) throw lookupError;
+    // The hash this session will carry. It has to match what the row actually holds: several
+    // tables, `split_bill_shares` among them, compare their stored hash directly against the
+    // session's to decide what belongs to whom. A session claiming version 2 for a row still on
+    // version 1 would hide the user's own split bills from them.
+    let sessionPhoneHash = lookup.matchedVersion === 1 ? lookup.legacyHash : lookup.currentHash;
 
-    let userId = existing?.id;
-    let tokenVersion = existing?.token_version ?? 0;
-    const isNewUser = !userId;
-
-    if (!userId) {
+    if (!existing) {
       const { data: created, error: createError } = await supabase
         .from('users')
-        .insert({ phone_hash: phoneHash, country_code: countryCode })
+        .insert({
+          phone_hash: lookup.currentHash,
+          // Written explicitly because the column defaults to 1 for the benefit of the rows
+          // that already existed. A new account has no legacy to declare.
+          phone_hash_version: CURRENT_PHONE_HASH_VERSION,
+          country_code: countryCode,
+        })
         .select('id, token_version')
         .single();
 
       if (createError) throw createError;
       userId = created.id;
       tokenVersion = created.token_version ?? 0;
+      sessionPhoneHash = lookup.currentHash;
     } else {
+      // Best effort, and deliberately not allowed to fail the sign-in. If it does not land the
+      // account simply stays on version 1, keeps working through the fallback above, and gets
+      // another attempt at the next sign-in.
+      userId = existing.id;
+      tokenVersion = existing.token_version ?? 0;
+
+      const upgrade = await upgradePhoneHashIfNeeded(supabase, {
+        userId,
+        matchedVersion: lookup.matchedVersion,
+        legacyHash: lookup.legacyHash,
+        currentHash: lookup.currentHash,
+      });
+
+      if (upgrade.upgraded) sessionPhoneHash = lookup.currentHash;
+
       await supabase
         .from('users')
         .update({ last_seen_at: new Date().toISOString() })
         .eq('id', userId);
+    }
+
+    // The dialling code and last four digits, so the profile screen can show the holder which
+    // number this account is. This is the only moment a plaintext number exists, so it is the
+    // only moment they can be derived — see `phoneHint`.
+    //
+    // Its own statement, after the row is known to exist, and allowed to fail silently. Folding
+    // it into the insert above would mean a sign-up dying outright on a database that has not
+    // run `db/migrations/2026-09-11-phone-hint.sql` yet, and no hint is worth breaking sign-in
+    // for. An account that misses it here gets another attempt at every later sign-in.
+    try {
+      const hint = phoneHint(rawPhone, dialCode);
+      await supabase
+        .from('users')
+        .update({ phone_dial_code: hint.dialCode, phone_last4: hint.last4 })
+        .eq('id', userId);
+    } catch {
+      // Deliberately empty: see above.
     }
 
     // The user exists; the wallet does not yet. The client provisions it with
@@ -159,12 +182,12 @@ export async function POST(request: Request) {
 
     await logAuthEvent(request, {
       type: isNewUser ? 'account_created' : 'otp_verify_succeeded',
-      phoneHash,
+      phoneHash: sessionPhoneHash,
       userId,
       metadata: { country: countryCode },
     });
 
-    const token = await generateToken({ phoneHash, userId, version: tokenVersion });
+    const token = await generateToken({ phoneHash: sessionPhoneHash, userId, version: tokenVersion });
 
     // The token is in the cookie and nowhere else. Returning it here as well would hand it
     // straight back to page script and undo the reason it is a cookie in the first place.

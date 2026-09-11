@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
 import { useTransfer } from "@/hooks/useTransfer"
+import ProfileAvatar from "@/components/ui/profile-avatar"
 import { useCurrencyToggleAmount } from "@/hooks/useCurrencyToggleAmount"
 import { type SakuTransaction } from "@/hooks/useTransactions"
 import { formatUsdc, transferFee } from "@/lib/fees"
@@ -258,9 +259,9 @@ export default function TransferPage() {
             {step === "amount" && recipient && (
               <div className="rounded-3xl border border-black/8 p-5 space-y-5 animate-in slide-in-from-bottom-2 duration-200">
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#FAFAFA]">
-                  <div className="w-10 h-10 rounded-full bg-black/80 flex items-center justify-center text-white">
-                    <User className="w-5 h-5" />
-                  </div>
+                  {/* Their own picture. Seeing the face you expect is the cheapest check there
+                      is against a mistyped digit sending money to a stranger. */}
+                  <ProfileAvatar src={recipient.avatarUrl} name={recipient.displayName} className="w-10 h-10" textClassName="text-xs" />
                   <div className="min-w-0">
                     <p className="text-sm font-bold truncate">{recipient.displayName || "Saku user"}</p>
                     <p className="text-xs text-black/45 font-mono truncate">
@@ -322,9 +323,12 @@ export default function TransferPage() {
                 </div>
 
                 <div className="space-y-3 pt-4 border-t border-black/5">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between items-center text-sm">
                     <span className="text-black/45">To</span>
-                    <span className="font-bold">{recipient.displayName || "Saku user"}</span>
+                    <span className="flex items-center gap-2 min-w-0">
+                      <ProfileAvatar src={recipient.avatarUrl} name={recipient.displayName} className="w-6 h-6" textClassName="text-[9px]" />
+                      <span className="font-bold truncate">{recipient.displayName || "Saku user"}</span>
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-black/45">Number</span>

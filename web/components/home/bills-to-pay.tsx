@@ -30,7 +30,7 @@ export default function BillsToPay() {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans space-y-3">
       <div className="flex items-end justify-between px-1">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-purple-600">
+          <p className="text-[11px] font-bold text-purple-600">
             You owe
           </p>
           <h2 className="text-lg font-black tracking-tight">

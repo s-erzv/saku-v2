@@ -18,12 +18,21 @@ import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { formatNotification } from '@/lib/notification-copy';
 
 /**
- * Money arriving, and an off-ramp reaching the other side, are the two things worth a buzz.
+ * Money arriving, an off-ramp reaching the other side, and anything touching who can reach the
+ * account.
+ *
+ * `security_alert` was the omission that mattered. Guardian invitations, guardian removals and
+ * recovery requests all carry that type, so the three notifications with the shortest fuse in
+ * the app were the only ones that never buzzed — a guardian learned someone was recovering an
+ * account only if they happened to open Saku, and an owner learned a guardian had been added to
+ * their account not at all. A recovery request is precisely the thing worth interrupting
+ * someone for.
+ *
  * `system` (added to a split bill, top up completed while the user is watching the screen that
  * completed it) and `transfer_sent` (an echo of something the user just did themselves) are
  * logged in-app only.
  */
-const PUSHABLE = new Set(['transfer_received', 'offramp_status']);
+const PUSHABLE = new Set(['transfer_received', 'offramp_status', 'security_alert']);
 
 let configured: boolean | null = null;
 

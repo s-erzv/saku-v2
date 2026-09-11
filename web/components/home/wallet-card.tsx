@@ -39,7 +39,7 @@ export default function WalletCard({ address }: { address: string }) {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-white/50">
+            <p className="text-[11px] font-bold text-white/50">
               {NETWORK_CONFIG.name}
             </p>
             <div className="mt-1 flex items-center gap-2">

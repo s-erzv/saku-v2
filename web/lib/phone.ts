@@ -11,6 +11,8 @@
  * Nothing outside this module should call keccak256 on a phone number.
  */
 
+import { createHmac } from 'crypto';
+
 import { ethers } from 'ethers';
 
 /** Digits only, no `+`. Loose on purpose — country numbering plans vary across ASEAN. */
@@ -61,18 +63,98 @@ export function normalizePhone(raw: string, country = '62'): string {
   return digits;
 }
 
+/** The rule {@link hashPhone} currently applies. Stored per row as `users.phone_hash_version`. */
+export const CURRENT_PHONE_HASH_VERSION = 2;
+
 /**
- * keccak256 of the normalized number — the value stored as `users.phone_hash`, sent to the
- * escrow as `recipientPhoneHash`, and used as the Web3Auth `verifierId`.
+ * Version 1: bare keccak256 of the normalized number.
  *
- * Note this is not a secret-keyed hash: a phone number has far too little entropy for the hash
- * alone to hide it from someone willing to enumerate. It has to stay unkeyed because the same
- * value must be derivable by the smart contract and by Web3Auth. What it buys is that a
- * database dump contains no directly usable contact list, and that no plain number sits in
- * logs, backups, or a third party's records.
+ * Kept only to read rows written before the pepper existed, and to find them during the
+ * migration in `lib/phone-identity.ts`. Nothing should write this value any more.
+ *
+ * The reason it was unkeyed no longer holds. The comment here used to say the value had to stay
+ * derivable by the smart contract and by Web3Auth. Web3Auth is gone, and the escrow never
+ * computes the hash — `recipientPhoneHash` is a parameter it stores and never inspects. So the
+ * constraint that forced an unkeyed hash was removed by two migrations that did not notice they
+ * had removed it.
+ *
+ * What it cost: a mobile number carries roughly thirty bits of entropy. An unkeyed hash of one
+ * is not an anonymisation, it is an encoding, and anyone holding a database dump — or reading
+ * the escrow's public storage, where these went on-chain in the clear — recovers every number
+ * by enumerating the space.
+ */
+export function hashPhoneLegacy(raw: string, country = '62'): string {
+  return ethers.keccak256(ethers.toUtf8Bytes(normalizePhone(raw, country)));
+}
+
+/**
+ * Fail closed, the same way `lib/otp.ts` does for its own pepper.
+ *
+ * A missing pepper here would not throw; it would quietly hash everyone with an empty key and
+ * hand back exactly the enumerable digest this function exists to stop, under a name that says
+ * otherwise. A hard failure at the first request is the louder and cheaper outcome.
+ */
+function pepper(): string {
+  const value = process.env.PHONE_HMAC_PEPPER;
+  if (!value || value.length < 32) {
+    throw new Error('PHONE_HMAC_PEPPER is missing or too short (want 32+ chars)');
+  }
+  return value;
+}
+
+/**
+ * Version 2: HMAC-SHA256 of the normalized number under a server-side pepper.
+ *
+ * Peppered, not salted. Every lookup here starts from a phone number and no idea which row it
+ * belongs to — that is the whole shape of logging in — so a per-row salt would turn an index
+ * probe into a scan that tries every row's salt in turn. One shared secret, held outside the
+ * database, keeps the lookup O(1) and still means a stolen dump alone reveals nothing.
+ *
+ * Output is 32 bytes in the same `0x`-prefixed lowercase hex as version 1, so it satisfies the
+ * existing `hash32` column domain and {@link isPhoneHash} unchanged. The two versions are
+ * therefore indistinguishable by shape, which is why the version is recorded per row rather
+ * than inferred.
  */
 export function hashPhone(raw: string, country = '62'): string {
-  return ethers.keccak256(ethers.toUtf8Bytes(normalizePhone(raw, country)));
+  const digest = createHmac('sha256', pepper()).update(normalizePhone(raw, country)).digest('hex');
+  return `0x${digest}`;
+}
+
+/**
+ * Both hashes for one number, current rule first.
+ *
+ * Callers that resolve a number to an existing account have to try version 1 as well, because a
+ * user who has not signed in since the pepper landed still has a version 1 row: their number is
+ * not stored, so nothing could have rewritten it in advance. Callers that only *write* a hash
+ * use {@link hashPhone} alone.
+ */
+export function phoneHashCandidates(
+  raw: string,
+  country = '62'
+): Array<{ version: number; hash: string }> {
+  return [
+    { version: CURRENT_PHONE_HASH_VERSION, hash: hashPhone(raw, country) },
+    { version: 1, hash: hashPhoneLegacy(raw, country) },
+  ];
+}
+
+/**
+ * The most of a number Saku is willing to write down: its dialling code and its last four digits.
+ *
+ * Everything else is protected by {@link hashPhone} and is not recoverable, which is the point.
+ * That also left the profile screen unable to answer "what is my number?" — it could say the
+ * number was verified and nothing more, which is no help to someone holding two SIMs.
+ *
+ * Four digits plus a dialling code is the shape a bank prints on a statement: enough for the
+ * holder to recognise their own number, and not enough to identify or reach anyone, since the
+ * digits that carry the entropy are exactly the ones left out.
+ *
+ * Derived from the normalized number rather than the raw input, so `0812...`, `+62 812...` and
+ * `812...` all yield the same four digits instead of three different answers.
+ */
+export function phoneHint(raw: string, country = '62'): { dialCode: string; last4: string } {
+  const digits = normalizePhone(raw, country);
+  return { dialCode: country.replace(/\D/g, ''), last4: digits.slice(-4) };
 }
 
 /** True when the value is a well-formed keccak256 hex string, matching the `hash32` domain. */

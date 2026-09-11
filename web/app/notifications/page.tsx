@@ -10,9 +10,10 @@
  * not a manual "mark all" chore.
  */
 
-import { useEffect } from "react"
+import { createElement, useEffect } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Bell, Gift, Loader2, Receipt, ScanLine, Users } from "lucide-react"
+import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Bell, Gift, Loader2, Receipt, ScanLine, ShieldCheck, Users } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useNotifications, type SakuNotification } from "@/hooks/useNotifications"
 import BottomNavigation from "@/components/home/bottom-navigation"
@@ -26,6 +27,9 @@ import BottomNavigation from "@/components/home/bottom-navigation"
  */
 function iconFor(notification: SakuNotification): typeof Bell {
   const meta = notification.metadata ?? {}
+  if ("guardian_invite_id" in meta || "guardian_id" in meta || "recovery_request_id" in meta) {
+    return ShieldCheck
+  }
   if ("packet_code" in meta) return Gift
   if ("bill_id" in meta) return Users
   if ("code" in meta) return ScanLine
@@ -33,6 +37,45 @@ function iconFor(notification: SakuNotification): typeof Bell {
   if (notification.type === "transfer_received") return ArrowDownLeft
   if (notification.type === "transfer_sent") return ArrowUpRight
   return Bell
+}
+
+/**
+ * Where a notification goes when it is tapped.
+ *
+ * Every row here was already an announcement that something happened somewhere else, and until
+ * now none of them went there — a guardian invitation in particular is a request for a decision,
+ * and a decision with no way to reach it is just an alert about work the person cannot do.
+ *
+ * Read from `metadata`'s shape for the same reason `iconFor` does: `notifications.type` is a
+ * five-value enum shared by every feature that writes here, so it cannot tell a packet claim
+ * from a plain transfer. Anything unrecognised returns null and stays a plain, unclickable row
+ * rather than guessing at a destination and landing someone on the wrong screen.
+ */
+function hrefFor(notification: SakuNotification): string | null {
+  const meta = notification.metadata ?? {}
+
+  // A recovery request is the most urgent decision a notification can carry — someone's account
+  // is waiting on this guardian — so it goes straight to the screen where it is answered. The
+  // owner's own "your account was recovered" row carries the same key and belongs there too.
+  if ("guardian_invite_id" in meta || "guardian_id" in meta || "recovery_request_id" in meta) {
+    return "/profile/security"
+  }
+
+  const billId = meta.bill_id
+  if (typeof billId === "string" && billId) return `/split-bill/${billId}`
+
+  if ("packet_code" in meta) return "/packet"
+  if ("code" in meta) return "/transactions"
+
+  if (
+    notification.type === "transfer_received" ||
+    notification.type === "transfer_sent" ||
+    notification.type === "offramp_status"
+  ) {
+    return "/transactions"
+  }
+
+  return null
 }
 
 function timeAgo(iso: string) {
@@ -48,19 +91,34 @@ function timeAgo(iso: string) {
 }
 
 function Row({ notification }: { notification: SakuNotification }) {
-  const Icon = iconFor(notification)
+  const href = hrefFor(notification)
+  // Picked and rendered in one expression. Assigning the icon to a capitalised variable and using
+  // it as `<Icon />` reads to the React compiler as a component created during render.
+  const icon = createElement(iconFor(notification), { className: "w-5 h-5 text-black/60" })
 
-  return (
-    <div className={`flex items-start gap-3 p-3 rounded-2xl ${notification.is_read ? "" : "bg-orange-50/60"}`}>
+  const body = (
+    <>
       <div className="w-10 h-10 rounded-2xl bg-black/5 flex items-center justify-center shrink-0">
-        <Icon className="w-5 h-5 text-black/60" />
+        {icon}
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-black/80">{notification.message}</p>
         <p className="text-[11px] text-black/40 mt-0.5">{timeAgo(notification.created_at)}</p>
       </div>
       {!notification.is_read && <div className="w-2 h-2 rounded-full bg-orange-500 mt-2 shrink-0" />}
-    </div>
+    </>
+  )
+
+  const shell = `flex items-start gap-3 p-3 rounded-2xl ${notification.is_read ? "" : "bg-orange-50/60"}`
+
+  // A row that leads somewhere is a link and looks like one; a row that does not stays inert
+  // rather than offering a tap that does nothing.
+  if (!href) return <div className={shell}>{body}</div>
+
+  return (
+    <Link href={href} className={`${shell} hover:bg-black/[0.04] transition-colors`}>
+      {body}
+    </Link>
   )
 }
 

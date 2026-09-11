@@ -46,6 +46,24 @@ function pepper(): string {
   return value;
 }
 
+/**
+ * When a code issued now stops being valid.
+ *
+ * Extracted from the request route so the window is a value that can be asserted on rather than
+ * an expression buried in an insert. The database is still what enforces it — `verify-otp`
+ * filters on `expires_at > now()`, which is the clock that matters — but a rule nothing can test
+ * is a rule that drifts.
+ */
+export function otpExpiresAt(nowMs: number = Date.now()): Date {
+  return new Date(nowMs + OTP_TTL_MS);
+}
+
+/** The same judgement the verify query makes, for callers that already hold the timestamp. */
+export function isOtpExpired(expiresAt: Date | string, nowMs: number = Date.now()): boolean {
+  const at = expiresAt instanceof Date ? expiresAt : new Date(expiresAt);
+  return !(at.getTime() > nowMs);
+}
+
 /** Cryptographically random numeric code, zero-padded to {@link OTP_LENGTH}. */
 export function generateOtpCode(): string {
   const max = 10 ** OTP_LENGTH;

@@ -68,14 +68,20 @@ export interface PrivyWallet {
  * Provision a wallet for one user.
  *
  * `owner_id` makes this app's authorization key the wallet's owner, so only a request signed
- * with that key can ever move funds. `external_id` carries the caller's phone hash — the same
- * identifier the rest of the schema is keyed by — which makes a Privy wallet traceable back to a
- * Saku user without a phone number existing on either side.
+ * with that key can ever move funds. `external_id` is the Saku user id — the one identifier that
+ * stays with an account for its whole life and is never issued to anyone else.
+ *
+ * It used to be the phone hash, and that broke on account recovery. Privy's external ids are
+ * write-once, so a recovered account's wallet kept its old number's hash forever; the next person
+ * to register that number collided with it, and the adoption below handed them the recovered
+ * account's wallet — its address, its balance, and the authority to sign for it. A user id moves
+ * with the account through a recovery. Wallets created before the change keep their phone-hash
+ * ids, which is harmless now that nothing creates with one, and `/api/mpc/provision` refuses to
+ * bind a wallet another account already holds regardless.
  */
-export async function createUserWallet(phoneHash: string): Promise<PrivyWallet> {
-  // `external_id` allows [a-zA-Z0-9_-] up to 64 characters; a keccak hash without its `0x` is
-  // exactly 64 hex characters.
-  const externalId = phoneHash.replace(/^0x/, '').slice(0, 64);
+export async function createUserWallet(userId: string): Promise<PrivyWallet> {
+  // `external_id` allows [a-zA-Z0-9_-] up to 64 characters; a UUID is 36 of them.
+  const externalId = userId;
 
   try {
     const wallet = await client().wallets().create({

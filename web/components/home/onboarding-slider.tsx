@@ -1,11 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Swiper, SwiperSlide } from "swiper/react"
-import { Pagination, Autoplay, Parallax } from "swiper/modules"
+import type { Swiper as SwiperClass } from "swiper"
+import { Pagination, Parallax } from "swiper/modules"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, ShieldCheck } from "lucide-react"
+
+import { useAuth } from "@/hooks/useAuth"
 import Image from "next/image"
 
 import "swiper/css"
@@ -31,6 +35,12 @@ const ONBOARDING_DATA = [
     description: "Send digital gift packets or pay anywhere with our seamless QRIS-ready scanner. Crypto made useful.",
     image: "/landing/card3.png",
     accent: "Daily Utility"
+  },
+  {
+    title: "One Number,\nOne Risk.",
+    description: "Your phone number is the only key to this account. If it is ever lost, blocked, or recycled by your carrier, there is no way back — unless you set up recovery first. It takes about a minute.",
+    image: "/landing/card4.png",
+    accent: "Before You Start"
   }
 ]
 
@@ -52,10 +62,30 @@ interface OnboardingSliderProps {
  * whole design, and it was never wired up — the component sat in the tree unimported while
  * `get-started` dutifully set the flags on every new account and sent them straight to Home, so
  * a brand new user landed on a full wallet with no introduction at all.
+ *
+ * The button advances, and only the last slide leaves. It used to call `handleClose` on every
+ * slide, which meant the one button on screen — captioned "Explore Saku", on slide one — closed
+ * the entire tour. Almost nobody saw slides two and three, and the tour read as a single splash
+ * screen. Autoplay went with it: a carousel that advances itself under a reader who now has a
+ * Next button is fighting them, and it used to move the copy mid-sentence.
+ *
+ * The last slide hands over to account recovery rather than dropping onto Home. It is written to
+ * earn that: it names the risk, and the screen it opens is the one that removes it. Going to Home
+ * first meant a full wallet appeared, then jumped to a security screen a second later, which
+ * reads like a misfire instead of the next page of the same thing.
  */
 export default function OnboardingSlider({ force = false, onClose }: OnboardingSliderProps = {}) {
+  const router = useRouter()
+  const { recovery } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
+  const [swiper, setSwiper] = useState<SwiperClass | null>(null)
+
+  const isLastSlide = activeIndex === ONBOARDING_DATA.length - 1
+  // Only worth offering when there is something to set up. Someone replaying the tour with
+  // recovery already in place should be sent back to the app, not into a screen with nothing
+  // left to ask them.
+  const offerRecovery = !recovery.ready
 
   useEffect(() => {
     if (force) {
@@ -77,13 +107,44 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
   // the whole app unscrollable with nothing on screen to explain why.
   useEffect(() => () => { document.body.style.overflow = 'unset' }, [])
 
-  const handleClose = () => {
+  /** Marks the tour seen and releases the page. Everything that leaves goes through here. */
+  const finish = () => {
     localStorage.setItem("saku_has_seen_onboarding", "true")
     localStorage.removeItem("saku_just_registered")
     document.body.style.overflow = 'unset'
     setIsOpen(false)
+  }
+
+  const handleClose = () => {
+    finish()
     onClose?.()
   }
+
+  /**
+   * The primary button. Advances until the last slide, then leaves.
+   *
+   * `onClose` is what the `/onboarding` route passes to be returned somewhere specific, so it
+   * wins: someone who opened the tour deliberately is not redirected into a setup flow they did
+   * not ask for.
+   */
+  const handlePrimary = () => {
+    if (!isLastSlide) {
+      swiper?.slideNext()
+      return
+    }
+    if (onClose) {
+      handleClose()
+      return
+    }
+    finish()
+    if (offerRecovery) router.replace("/security/setup")
+  }
+
+  const primaryLabel = !isLastSlide
+    ? "Next"
+    : offerRecovery
+      ? "Set up recovery"
+      : "Explore Saku"
 
   return (
       <AnimatePresence>
@@ -121,10 +182,10 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
   
               {/* SWIPER AREA */}
               <Swiper
-                modules={[Pagination, Autoplay, Parallax]}
+                modules={[Pagination, Parallax]}
                 parallax={true}
-                onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
-                autoplay={{ delay: 5500 }}
+                onSwiper={setSwiper}
+                onSlideChange={(instance) => setActiveIndex(instance.activeIndex)}
                 className="w-full flex-1 min-h-0"
               >
                 {ONBOARDING_DATA.map((item, index) => (
@@ -138,7 +199,7 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
                         key={`accent-${activeIndex}`}
                       >
                         <span 
-                          className="text-[10px] font-black uppercase tracking-[0.3em]"
+                          className="text-[11px] font-bold"
                           style={{ color: SAKU_ORANGE }}
                         >
                           {item.accent}
@@ -187,13 +248,16 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
               </Swiper>
   
               {/* BOTTOM INTERACTION AREA */}
-              <div className="shrink-0 w-full p-6 sm:p-8 bg-white/95 backdrop-blur-md flex flex-col items-center border-t border-zinc-100 relative z-20">
+              <div className="shrink-0 w-full p-6 sm:p-8 bg-white/95 backdrop-blur-md flex flex-col items-center gap-3 border-t border-zinc-100 relative z-20">
                 <Button 
-                  onClick={handleClose}
+                  onClick={handlePrimary}
                   style={{ backgroundColor: SAKU_ORANGE }}
                   className="w-full h-[60px] rounded-2xl text-white hover:opacity-90 transition-all group flex items-center justify-between px-8 text-lg font-bold shadow-xl shadow-[#F0A353]/25"
                 >
-                  <span>Explore Saku</span>
+                  <span className="flex items-center gap-2">
+                    {isLastSlide && offerRecovery && <ShieldCheck className="w-5 h-5 stroke-[2.5px]" />}
+                    {primaryLabel}
+                  </span>
                   <motion.div
                     animate={{ x: [0, 4, 0] }}
                     transition={{ repeat: Infinity, duration: 1.2 }}
@@ -201,6 +265,29 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
                     <ArrowRight className="w-6 h-6 stroke-[3px]" />
                   </motion.div>
                 </Button>
+
+                {/* Skipping stays possible, and stays quiet. A tour with no way out is a tour
+                    people close by killing the tab, and recovery asked for under duress is
+                    recovery abandoned halfway. `recovery-gate.tsx` asks again in a week. */}
+                {isLastSlide && offerRecovery && !onClose ? (
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="text-sm font-semibold text-zinc-400 hover:text-zinc-700 transition-colors py-1"
+                  >
+                    I&rsquo;ll do this later
+                  </button>
+                ) : !isLastSlide ? (
+                  <button
+                    type="button"
+                    onClick={() => swiper?.slideTo(ONBOARDING_DATA.length - 1)}
+                    className="text-sm font-semibold text-zinc-400 hover:text-zinc-700 transition-colors py-1"
+                  >
+                    Skip
+                  </button>
+                ) : (
+                  <span className="h-[30px]" aria-hidden />
+                )}
               </div>
               
             </div>

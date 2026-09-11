@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
@@ -8,6 +9,7 @@ import { toast } from "sonner"
 import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 import { ArrowLeft, ShieldCheck } from "lucide-react"
 import { OTP_LENGTH } from "@/lib/otp-shape"
+import { rememberOwnNumber } from "@/lib/own-number"
 
 /**
  * National numbers are shorter outside Indonesia — Malaysia runs to nine digits without its
@@ -154,7 +156,16 @@ export default function LoginScreen() {
           }),
         })
         const result = await res.json()
-        if (!res.ok) throw new Error(result.error || "That code didn't work. Try again.")
+        if (!res.ok) {
+          // The challenge itself is finished — expired, or out of attempts. The server just told
+          // them to ask for a new code, so the cooldown is dropped and the button that does it is
+          // live immediately. Leaving it counting down would be the app refusing the only thing
+          // it had just suggested.
+          if (result.code === "EXPIRED_OTP" || result.code === "OTP_ATTEMPTS_EXHAUSTED") {
+            setSecondsLeft(0)
+          }
+          throw new Error(result.error || "That code didn't work. Try again.")
+        }
 
         if (result.isNewUser) {
           localStorage.setItem("saku_just_registered", "true")
@@ -174,7 +185,13 @@ export default function LoginScreen() {
           toast.error("Wallet setup didn't finish. You can pick it up again from home.")
         }
 
-        await refreshUser()
+        // The one moment a plaintext number exists on the client. The server keeps only its
+        // HMAC, so if this device does not write the number down now, nothing can ever show the
+        // owner their own number again — see `lib/own-number.ts`. Keyed by `phone_hash`, which
+        // is peppered server-side and therefore only knowable once `/api/me` has answered.
+        const signedIn = await refreshUser()
+        rememberOwnNumber(signedIn?.phone_hash, formatPhone(phone), selectedCountryCode)
+
         router.push("/home")
       } catch (err) {
         failCode(err instanceof Error ? err.message : "That code didn't work. Try again.")
@@ -391,6 +408,22 @@ export default function LoginScreen() {
               >
                 {loading ? "Sending code…" : "Send code"}
               </button>
+
+              {/*
+                The "forgot password" of a product that has no password. Someone whose number is
+                gone cannot receive the code this screen is about to send, so the one screen that
+                can help them has to be reachable from here — the alternative is a dead end
+                dressed as a retry.
+
+                Worded as the symptom rather than the feature. Nobody arrives thinking "I need
+                account recovery"; they arrive thinking the code never came.
+              */}
+              <Link
+                href="/recover"
+                className="mt-4 block w-full py-2 text-center text-[13px] font-semibold text-[#7F8790] underline underline-offset-4 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+              >
+                Can&rsquo;t receive the code?
+              </Link>
             </form>
           )}
 

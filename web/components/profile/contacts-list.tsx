@@ -4,8 +4,9 @@
  * The Contacts tab on the profile screen.
  *
  * A contact is a label plus a phone hash on the server, so a number only shows when *this*
- * device is the one that saved it. The UI says so rather than leaving a blank line looking
- * broken — that asymmetry is a deliberate consequence of not storing phone numbers.
+ * device is the one that saved it. That asymmetry is a deliberate consequence of not storing
+ * phone numbers, and the row simply omits what it does not know rather than explaining the
+ * storage model in the middle of an address book.
  */
 
 import { useState } from "react"
@@ -14,6 +15,7 @@ import { useRouter } from "next/navigation"
 import { useContacts } from "@/hooks/useContacts"
 import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
+import ProfileAvatar from "@/components/ui/profile-avatar"
 
 export default function ContactsList() {
   const router = useRouter()
@@ -105,24 +107,36 @@ export default function ContactsList() {
         </div>
       ) : (
         <div className="space-y-2">
-          {contacts.map((c) => (
+          {contacts.map((c) => {
+            const meta = [c.phone ? `+${c.phone}` : null, c.onSaku ? "On Saku" : null]
+              .filter(Boolean)
+              .join(" · ")
+
+            return (
             <div
               key={c.id}
-              className="flex items-center gap-3 p-3.5 rounded-2xl border border-black/6 bg-white"
+              className="flex items-center gap-3 p-3.5 rounded-2xl border border-black/[0.08] bg-white"
             >
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {c.label.slice(0, 2).toUpperCase()}
-              </div>
+              {/* Their own picture when they are on Saku and set one, initials otherwise. */}
+              <ProfileAvatar src={c.avatarUrl} name={c.label} />
 
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold truncate">{c.label}</p>
-                <p className="text-[11px] text-black/40 truncate">
-                  {c.phone
-                    ? `+${c.phone}`
-                    : /* Saved on another device — the server has only the hash. */
-                      "Number saved on another device"}
-                  {c.onSaku && " · on Saku"}
-                </p>
+                {/* Whatever is actually known, and nothing where nothing is.
+                    
+                    This used to print "Number saved on another device" for any contact whose
+                    number this browser did not happen to hold — which is true (the server keeps
+                    only the hash, so the plain number lives on whichever device added the
+                    contact) and is an explanation of Saku's storage model appearing in the
+                    middle of an address book. Next to a row that does show a number it reads as
+                    a fault. A row that knows the person is on Saku says so; a row that knows
+                    nothing else says nothing else. */}
+                {meta && <p className="text-[11px] text-black/40 truncate">{meta}</p>}
+                {/* Only when it differs from the label, so a contact filed under their real name
+                    does not print it twice. */}
+                {c.sakuName && c.sakuName.trim() !== c.label.trim() && (
+                  <p className="text-[11px] text-black/30 truncate">Saku name: {c.sakuName}</p>
+                )}
               </div>
 
               {c.onSaku && (
@@ -142,7 +156,8 @@ export default function ContactsList() {
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

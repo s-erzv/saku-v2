@@ -29,14 +29,14 @@ export default function WaitingPackets() {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans space-y-3">
       <div className="flex items-end justify-between px-1">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[#F0A353]">
+          <p className="text-[11px] font-bold text-[#F0A353]">
             Waiting for you
           </p>
           <h2 className="text-lg font-black tracking-tight">
             {packets.length} {packets.length === 1 ? "packet" : "packets"} to open
           </h2>
         </div>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-black/25 pb-1">
+        <p className="text-[11px] font-bold text-black/25 pb-1">
           Fastest finger
         </p>
       </div>

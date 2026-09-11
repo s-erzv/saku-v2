@@ -17,6 +17,13 @@ export interface Contact {
   label: string;
   phoneHash: string;
   onSaku: boolean;
+  /** The picture this contact set on their own Saku profile, when they are on Saku. */
+  avatarUrl?: string | null;
+  /**
+   * The name they gave themselves. Shown as a second line, never in place of `label` — a row
+   * filed as "Mum" stays "Mum" whatever she typed into her own profile.
+   */
+  sakuName?: string | null;
   /** From this device's local cache, if it added the contact. */
   phone?: string;
 }

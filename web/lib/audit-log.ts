@@ -29,7 +29,18 @@ export type AuthEventType =
   | 'otp_verify_succeeded'
   | 'account_created'
   | 'session_revoked'
-  | 'wallet_provisioned';
+  | 'wallet_provisioned'
+  // Recovery-factor changes. Every one of these alters who can reach the account, which is the
+  // shortest description of what this log is for.
+  | 'backup_email_verified'
+  | 'backup_email_removed'
+  | 'guardian_invited'
+  | 'guardian_approved'
+  | 'guardian_revoked'
+  // A guardian's vote on a live recovery, as opposed to their answer to the invitation above.
+  // Separated by channel because an off-app guardian was authorised by a link rather than a
+  // session, and a run of link-authorised votes is the shape worth being able to search for.
+  | 'recovery_guardian_voted';
 
 export interface AuthEvent {
   type: AuthEventType;

@@ -4,12 +4,23 @@ import { useRouter, usePathname } from "next/navigation"
 import { Home, QrCode, Receipt, TrendingUp, User } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { useAuth } from "@/hooks/useAuth"
+
 type NavItem = {
   label: string
   icon: React.ElementType
   path: string
   /** False while the destination is still being rebuilt — renders dimmed and inert. */
   ready: boolean
+  /**
+   * Marks a tab as carrying something unfinished, drawn as a dot on its icon.
+   *
+   * Only one tab uses it, and only for one thing: recovery not yet set up. That narrowness is
+   * the point. A dot that can mean four things is a dot nobody reads, and this one has to keep
+   * working for the months an account may sit one lost SIM away from being gone — so it means
+   * exactly what the amber card inside Profile means, and goes out the moment that card does.
+   */
+  alert?: (state: { recoveryReady: boolean }) => boolean
 }
 
 // The v1 bar, restored exactly: Home, History, the QR Pay button in the middle, Earn, Profile.
@@ -23,8 +34,16 @@ const leftItems: NavItem[] = [
 
 const rightItems: NavItem[] = [
   { label: "Earn", icon: TrendingUp, path: "/staking", ready: true },
-  { label: "Profile", icon: User, path: "/profile", ready: true },
+  {
+    label: "Profile",
+    icon: User,
+    path: "/profile",
+    ready: true,
+    alert: ({ recoveryReady }) => !recoveryReady,
+  },
 ]
+
+const ALERT_RED = "#DC2626"
 
 function useRipple() {
   const [ripples, setRipples] = useState<{ x: number; y: number; id: number }[]>([])
@@ -46,6 +65,12 @@ function NavItemButton({ item }: { item: NavItem }) {
   const pathname = usePathname()
   const active = pathname === item.path
   const { ripples, trigger } = useRipple()
+  const { isAuthenticated, recovery } = useAuth()
+
+  // Nothing to flag before the account is known. Showing the dot while `recovery` is still at its
+  // empty default would light it up for a second on every cold load, including for people whose
+  // recovery is perfectly fine.
+  const alerting = isAuthenticated && (item.alert?.({ recoveryReady: recovery.ready }) ?? false)
 
   return (
     <button
@@ -56,7 +81,7 @@ function NavItemButton({ item }: { item: NavItem }) {
       }}
       disabled={!item.ready}
       title={item.ready ? undefined : "Coming soon"}
-      aria-label={item.label}
+      aria-label={alerting ? `${item.label} — needs your attention` : item.label}
       aria-current={active ? "page" : undefined}
       className="relative flex flex-col items-center justify-center gap-1 w-full h-full overflow-hidden select-none disabled:opacity-40"
       style={{ WebkitTapHighlightColor: "transparent" }}
@@ -84,6 +109,18 @@ function NavItemButton({ item }: { item: NavItem }) {
           className="transition-all duration-300"
           style={{ color: active ? "var(--color-secondary, #F0A353)" : "rgba(0,0,0,0.35)" }}
         />
+
+        {/* The notification red everyone already reads as "deal with this". It is the loudest
+            colour on the bar, which is the right weight for the one thing on it that can cost
+            someone their whole account — and it will not be confused with the orange the active
+            tab is painted in. The ring keeps it legible where it overlaps the icon's strokes. */}
+        {alerting && (
+          <span
+            aria-hidden
+            className="absolute top-0.5 right-1.5 h-2 w-2 rounded-full ring-2 ring-white"
+            style={{ backgroundColor: ALERT_RED }}
+          />
+        )}
         {active && (
           <span
             className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[var(--color-secondary,#F0A353)]"

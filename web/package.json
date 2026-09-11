@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --import ./scripts/test-setup.mjs --test 'lib/**/*.test.ts'",
     "verify:tx-policy": "./scripts/verify-tx-policy.sh"
   },
   "dependencies": {
@@ -62,6 +63,8 @@
     "lucide-react": "^0.454.0",
     "next": "16.3.4",
     "next-themes": "^0.4.6",
+    "nodemailer": "^10.0.3",
+    "ogl": "^1.0.11",
     "qrcode.react": "^4.2.0",
     "react": "19.2.0",
     "react-day-picker": "9.8.0",
@@ -82,12 +85,14 @@
     "@types/aos": "^3.0.7",
     "@types/bn.js": "^5.2.0",
     "@types/node": "^22",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.4",
     "postcss": "^8.5",
+    "shadcn": "^4.21.0",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"

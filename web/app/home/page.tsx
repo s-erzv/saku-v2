@@ -11,7 +11,9 @@ import BottomNavigation from "@/components/home/bottom-navigation"
 import WalletSetup from "@/components/home/wallet-setup"
 import WaitingPackets from "@/components/home/waiting-packets"
 import BillsToPay from "@/components/home/bills-to-pay"
+import GuardianRequests from "@/components/home/guardian-requests"
 import OnboardingSlider from "@/components/home/onboarding-slider"
+import RecoveryGate from "@/components/home/recovery-gate"
 
 export default function HomePage() {
   const router = useRouter()
@@ -37,6 +39,10 @@ export default function HomePage() {
           `get-started` sets and gates itself. */}
       <OnboardingSlider />
 
+      {/* Renders nothing. Waits for the tour above to finish, then sends anyone without a way
+          back to `/security/setup` — once a week at most, and never once recovery is in place. */}
+      <RecoveryGate />
+
       <HomeHeader />
 
       <main className="max-w-lg mx-auto px-4 space-y-6 py-2 relative z-10">
@@ -45,6 +51,10 @@ export default function HomePage() {
         {/* Only renders while the wallet is still being derived, or if that failed. Once the
             MPC login lands it returns null and stays out of the way. */}
         <WalletSetup />
+
+        {/* Above the quick actions, unlike the cards below: someone else's account is waiting on
+            this answer. Renders nothing unless a guardian request is actually open. */}
+        <GuardianRequests />
 
         <QuickActions />
 

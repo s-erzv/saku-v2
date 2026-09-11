@@ -30,6 +30,8 @@ const USDC_DECIMALS = 6;
 export interface ResolvedRecipient {
   address: string;
   displayName: string | null;
+  /** Their profile picture, so the confirm step shows a person and not a placeholder glyph. */
+  avatarUrl: string | null;
   phoneHash: string;
 }
 
@@ -88,6 +90,7 @@ export function useTransfer() {
         const resolved: ResolvedRecipient = {
           address: data.address,
           displayName: data.displayName,
+          avatarUrl: data.avatarUrl ?? null,
           phoneHash: data.phoneHash,
         };
         setRecipient(resolved);

@@ -94,18 +94,38 @@ class BackendSigner extends AbstractSigner {
   }
 }
 
-export function MpcWalletProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  /** Guards the auto-login effect so a re-render never starts a second provisioning call. */
-  const autoLoginStarted = useRef(false);
+interface WalletState {
+  /** The account this state belongs to. Null only while a login has not said whose it is yet. */
+  userId: string | null;
+  status: MpcStatus;
+  address: string | null;
+  error: string | null;
+}
 
-  const [status, setStatus] = useState<MpcStatus>('idle');
-  const [address, setAddress] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+const EMPTY_WALLET: Omit<WalletState, 'userId'> = { status: 'idle', address: null, error: null };
+
+export function MpcWalletProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, user } = useAuth();
+  const userId = isAuthenticated ? (user?.id ?? null) : null;
+
+  /**
+   * The provider lives in the root layout and outlives any one sign-in, so its state has to say
+   * whose it is. It used to be three bare fields, and after one person signed out and another
+   * signed in on the same device, Home kept showing the first person's address and balance —
+   * a shared or handed-down phone showing one account's money to the next.
+   *
+   * Now the state is tagged with the account the server said it belongs to, and state tagged for
+   * anyone other than the current user reads as empty. A slow response for the previous account
+   * cannot land on the next one either, because it arrives tagged with the wrong id.
+   */
+  const [wallet, setWallet] = useState<WalletState>({ userId: null, ...EMPTY_WALLET });
+  const current: WalletState = wallet.userId === userId ? wallet : { userId, ...EMPTY_WALLET };
+
+  /** Which account the auto-login has already run for, so a re-render never starts a second one. */
+  const autoLoginFor = useRef<string | null>(null);
 
   const login = useCallback(async () => {
-    setError(null);
-    setStatus('connecting');
+    setWallet((prev) => ({ ...prev, userId, status: 'connecting', error: null }));
     try {
       const response = await fetch('/api/mpc/provision', {
         method: 'POST',
@@ -114,29 +134,37 @@ export function MpcWalletProvider({ children }: { children: ReactNode }) {
         const body = await response.json().catch(() => ({}) as { error?: string });
         throw new Error(body.error || 'Could not provision wallet');
       }
-      const { address: walletAddress } = (await response.json()) as { address: string };
+      // Filed under the account the server resolved from the session cookie, not whichever user
+      // this browser thought was signed in when the request left — right after an OTP those two
+      // can briefly differ, and only the server's answer is authoritative.
+      const { address: walletAddress, userId: owner } = (await response.json()) as {
+        address: string;
+        userId: string;
+      };
 
-      setAddress(walletAddress);
-      setStatus('connected');
+      setWallet({ userId: owner, status: 'connected', address: walletAddress, error: null });
     } catch (err) {
-      setStatus('idle');
-      setError(err instanceof Error ? err.message : 'Wallet login failed');
+      setWallet({
+        userId,
+        status: 'idle',
+        address: null,
+        error: err instanceof Error ? err.message : 'Wallet login failed',
+      });
       throw err;
     }
-  }, []);
+  }, [userId]);
 
   const getSigner = useCallback(async () => {
-    if (!address) throw new Error('Wallet is not connected');
+    if (!current.address) throw new Error('Wallet is not connected');
     const provider = new JsonRpcProvider(NETWORK_CONFIG.rpcUrl, NETWORK_CONFIG.chainId, {
       staticNetwork: true,
       pollingInterval: RECEIPT_POLLING_MS,
     });
-    return new BackendSigner(provider, address);
-  }, [address]);
+    return new BackendSigner(provider, current.address);
+  }, [current.address]);
 
   const logout = useCallback(() => {
-    setAddress(null);
-    setStatus('idle');
+    setWallet({ userId: null, ...EMPTY_WALLET });
   }, []);
 
   /**
@@ -147,20 +175,38 @@ export function MpcWalletProvider({ children }: { children: ReactNode }) {
    * connected rather than telling the user to "finish setup from Home".
    */
   useEffect(() => {
-    if (autoLoginStarted.current) return;
-    if (!isAuthenticated) return;
-    if (status !== 'idle') return;
+    if (!userId) return;
+    if (autoLoginFor.current === userId) return;
+    if (current.status !== 'idle') return;
 
-    // Set once and never cleared, including on failure — see the historical note in git blame
-    // for why clearing this on error caused a re-trigger loop that froze the page. One attempt
-    // per mount; screens that need a wallet surface `error` and their own retry button.
-    autoLoginStarted.current = true;
-    void login().catch(() => {});
-  }, [isAuthenticated, status, login]);
+    // Started from a timer rather than the effect body, because `login` marks the wallet as
+    // connecting straight away and a state update inside the effect itself renders twice for
+    // nothing. The account is recorded inside the timer, not before it: development runs every
+    // effect twice, and the first run's cleanup cancels its timer — recording early would leave
+    // the second run believing the attempt had already happened.
+    //
+    // Not cleared on failure — see the historical note in git blame for why clearing this on
+    // error caused a re-trigger loop that froze the page. One attempt per account per mount;
+    // screens that need a wallet surface `error` and their own retry button. A different account
+    // signing in gets its own attempt.
+    const timer = setTimeout(() => {
+      autoLoginFor.current = userId;
+      void login().catch(() => {});
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [userId, current.status, login]);
 
   const value = useMemo(
-    () => ({ status, address, error, login, getSigner, logout }),
-    [status, address, error, login, getSigner, logout]
+    () => ({
+      status: current.status,
+      address: current.address,
+      error: current.error,
+      login,
+      getSigner,
+      logout,
+    }),
+    [current.status, current.address, current.error, login, getSigner, logout]
   );
 
   return <MpcWalletContext.Provider value={value}>{children}</MpcWalletContext.Provider>;

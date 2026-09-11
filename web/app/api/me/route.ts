@@ -11,6 +11,13 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
+import {
+  hasRecoveryPath,
+  isGuardianEligible,
+  isRecoveryReady,
+  nextGuardianActiveAt,
+  type GuardianRow,
+} from '@/lib/guardians';
 import { getSession, unauthorized, setSessionCookie, shouldRenew } from '@/lib/session';
 import { generateToken } from '@/lib/jwt';
 
@@ -21,11 +28,26 @@ export async function GET(request: Request) {
   try {
     const supabase = getSupabaseAdmin();
 
-    const { data: user, error } = await supabase
+    // Two column lists, one query in the normal case. `phone_dial_code` and `phone_last4`
+    // arrive with `db/migrations/2026-09-11-phone-hint.sql`, and this route is the backbone of
+    // every screen — selecting a column that does not exist yet would not degrade the profile
+    // screen, it would sign everybody out. So a database still missing them falls back to the
+    // list without, and the profile screen shows what it showed before.
+    const BASE_COLUMNS = 'id, phone_hash, display_name, avatar_url, country_code, created_at, email_verified_at';
+
+    let { data: user, error } = await supabase
       .from('users')
-      .select('id, phone_hash, display_name, avatar_url, country_code, created_at')
+      .select(`${BASE_COLUMNS}, phone_dial_code, phone_last4`)
       .eq('id', session.userId)
       .maybeSingle();
+
+    if (error) {
+      ({ data: user, error } = await supabase
+        .from('users')
+        .select(BASE_COLUMNS)
+        .eq('id', session.userId)
+        .maybeSingle());
+    }
 
     if (error) throw error;
     // `getSession` already refuses a token whose subject is gone, so reaching this is a race
@@ -39,13 +61,44 @@ export async function GET(request: Request) {
       .eq('chain_id', Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? 97))
       .maybeSingle();
 
+    // What "recoverable" means, asked of the two things that actually decide it.
+    //
+    // This used to be `wallet.factors_enrolled < 2`, which was always true: the column is
+    // written as 1 when the wallet is provisioned and nothing has ever incremented it. It was a
+    // leftover from the Web3Auth threshold-share model, where a second factor was a key share
+    // the user held. Under server-side custody there is no such share, so the flag measured
+    // nothing and no screen read it.
+    const { data: guardianRows } = await supabase
+      .from('guardians')
+      .select('id, status, approved_at, effective_at')
+      .eq('user_id', user.id)
+      .neq('status', 'revoked');
+
+    const guardians = (guardianRows ?? []) as GuardianRow[];
+    const emailVerified = !!user.email_verified_at;
+    const now = Date.now();
+    const nextActive = nextGuardianActiveAt(guardians, now);
+
     const response = NextResponse.json({
       user,
       wallet: wallet ?? null,
-      // A wallet with one factor is one cleared browser away from being unrecoverable, so the
-      // UI needs to know the difference between "has a wallet" and "has a safe wallet".
       needsWalletSetup: !wallet,
-      needsRecoveryFactor: !wallet || wallet.factors_enrolled < 2,
+      recovery: {
+        emailVerified,
+        // Approved and past its cooling period. A guardian who accepted an hour ago is real but
+        // cannot help yet, and saying otherwise would be the one lie this screen must not tell.
+        activeGuardians: guardians.filter((g) => isGuardianEligible(g, now)).length,
+        pendingGuardians: guardians.filter((g) => !isGuardianEligible(g, now)).length,
+        // Both factors in place — the same test the recovery screen applies before sending
+        // anything, so a badge built on this cannot say "on" while a recovery would be refused.
+        ready: isRecoveryReady({ emailVerified, guardians, nowMs: now }),
+        // Remaining rather than a timestamp, so the screen can say "in 5 hours" without reading
+        // the clock during render.
+        guardianReadyInMs: nextActive ? nextActive.getTime() - now : null,
+      },
+      // Kept under the old name so existing callers keep compiling. True only when the account
+      // has neither factor; `recovery.ready` is the question "would a recovery work today".
+      needsRecoveryFactor: !hasRecoveryPath({ emailVerified, guardians, nowMs: now }),
     });
 
     if (shouldRenew(session)) {

@@ -12,7 +12,8 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getSession, unauthorized } from '@/lib/session';
-import { hashPhone, InvalidPhoneNumberError } from '@/lib/phone';
+import { InvalidPhoneNumberError, phoneHashCandidates } from '@/lib/phone';
+import { findUserByPhone } from '@/lib/phone-identity';
 import { describeDbError } from '@/lib/db-errors';
 
 const requireSession = getSession;
@@ -31,16 +32,47 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
+    const rows = data ?? [];
+
+    // The picture and the name a contact chose for themselves, for the ones who are on Saku.
+    //
+    // Its own query rather than a join: the list is a page of an address book, so this is one
+    // extra round trip for the whole screen, and a PostgREST embed here would have to name the
+    // foreign key constraint — which is a string this file would then be silently wrong about
+    // if the schema were ever regenerated.
+    //
+    // The label still wins for the name. A contact is filed under what *this* user called them,
+    // and replacing "Mum" with whatever she typed into her own profile would be a worse answer
+    // to who the row is. The avatar has no such conflict, so it simply shows.
+    const contactUserIds = [...new Set(rows.map((row) => row.contact_user_id).filter(Boolean))];
+    const profiles = new Map<string, { avatarUrl: string | null; displayName: string | null }>();
+
+    if (contactUserIds.length > 0) {
+      const { data: people } = await supabase
+        .from('users')
+        .select('id, avatar_url, display_name')
+        .in('id', contactUserIds);
+
+      for (const person of people ?? []) {
+        profiles.set(person.id, { avatarUrl: person.avatar_url, displayName: person.display_name });
+      }
+    }
+
     return NextResponse.json({
-      contacts: (data ?? []).map((row) => ({
-        id: row.id,
-        label: row.label,
-        phoneHash: row.contact_phone_hash,
-        // Whether this contact turned out to be a Saku user — decides if a direct transfer is
-        // possible or the cross-rail path is needed.
-        onSaku: !!row.contact_user_id,
-        createdAt: row.created_at,
-      })),
+      contacts: rows.map((row) => {
+        const profile = row.contact_user_id ? profiles.get(row.contact_user_id) : undefined;
+        return {
+          id: row.id,
+          label: row.label,
+          phoneHash: row.contact_phone_hash,
+          // Whether this contact turned out to be a Saku user — decides if a direct transfer is
+          // possible or the cross-rail path is needed.
+          onSaku: !!row.contact_user_id,
+          avatarUrl: profile?.avatarUrl ?? null,
+          sakuName: profile?.displayName ?? null,
+          createdAt: row.created_at,
+        };
+      }),
     });
   } catch (error) {
     const { message, isSchemaDrift, code } = describeDbError(error, 'Could not load contacts');
@@ -61,9 +93,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name must be 1-64 characters' }, { status: 400 });
     }
 
-    let phoneHash: string;
+    const dialCode: string = body.countryCode || '62';
+    const rawPhone: string = body.phone;
+    let candidates: Array<{ version: number; hash: string }>;
     try {
-      phoneHash = hashPhone(body.phone, body.countryCode || '62');
+      candidates = phoneHashCandidates(rawPhone, dialCode);
     } catch (error) {
       if (error instanceof InvalidPhoneNumberError) {
         return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 });
@@ -71,7 +105,13 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    if (phoneHash === session.phoneHash) {
+    // What gets written is always version 2; a value stored now has no history to match.
+    const phoneHash = candidates[0].hash;
+
+    // The comparison, though, has to try both. The session carries whichever version this
+    // account's own row still holds, so a user on version 1 adding their own number would slip
+    // past a version 2 equality check.
+    if (candidates.some((c) => c.hash === session.phoneHash)) {
       return NextResponse.json({ error: 'That is your own number' }, { status: 400 });
     }
 
@@ -80,11 +120,10 @@ export async function POST(request: Request) {
     // Resolve now if they are on Saku, so the transfer screen does not have to look it up again.
     // Left NULL when they are not — and re-resolved on read is deliberately not done: a contact
     // joining Saku later is picked up the next time they are added or transferred to.
-    const { data: existing } = await supabase
-      .from('users')
-      .select('id')
-      .eq('phone_hash', phoneHash)
-      .maybeSingle();
+    // Version 2 first, version 1 as a fallback: a contact who has not signed in since the
+    // pepper landed still has an unkeyed row, and reading them as "not on Saku" would file the
+    // contact with a null `contact_user_id` that nothing ever re-resolves.
+    const { user: existing } = await findUserByPhone(supabase, rawPhone, dialCode, 'id');
 
     const { data, error } = await supabase
       .from('contacts')

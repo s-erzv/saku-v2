@@ -47,7 +47,7 @@ export default function HomeHeader() {
                 <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
                 <div className="absolute left-0 mt-3 w-56 bg-white/90 backdrop-blur-2xl border rounded-xl shadow-lg p-2 z-20 animate-in fade-in zoom-in-95 duration-150 origin-top-left">
                   <div className="px-3 py-2 border-b border-gray-200/80 mb-1">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Account</p>
+                    <p className="text-xs font-bold text-gray-500 mb-1">Account</p>
                     <p className="text-sm font-semibold text-gray-800 truncate">{label}</p>
                   </div>
                   <button
