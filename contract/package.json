@@ -7,6 +7,7 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:escrow": "hardhat run scripts/deployOfframpEscrow.ts --network bscTestnet",
+    "deploy:staking": "hardhat run scripts/deployStaking.ts --network bscTestnet",
     "deploy:mockusdc": "hardhat run scripts/deployMockUSDC.ts --network bscTestnet",
     "deploy:mockstable": "hardhat run scripts/deployMockStableToken.ts --network bscTestnet",
     "seed:liquidity": "hardhat run scripts/seedLiquidity.ts --network bscTestnet",

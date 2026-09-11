@@ -276,12 +276,20 @@ contract SakuStaking is Ownable, ReentrancyGuard {
         stakingToken.safeTransferFrom(msg.sender, address(this), amount);
         rewardReserve += amount;
 
-        // Any unspent time from a previous funding is rolled into the new stream rather than
-        // discarded, so topping up early does not shorten what was already promised.
-        uint256 remaining = block.timestamp < rewardsEndAt ? rewardsEndAt - block.timestamp : 0;
-        uint256 leftover = remaining * rewardRate;
-
-        rewardRate = (rewardReserve > leftover ? rewardReserve : leftover) / duration;
+        // `rewardReserve` is, by definition, everything funded that has not yet accrued to a
+        // staker — `_updatePool` above moved out whatever had. That already includes the unspent
+        // remainder of the previous stream, so dividing it by the new duration rolls the old
+        // funding forward without discarding it, and no separate leftover term is needed.
+        //
+        // The previous form was `max(rewardReserve, remaining * rewardRate) / duration`. When
+        // the two disagreed it took the larger, which is the wrong half: they only disagree when
+        // the old rate was already promising more than the reserve could pay, and taking it
+        // carried that over-promise into the new stream instead of correcting it. Solvency was
+        // never at risk, because accrual is capped at the reserve in both `_updatePool` and
+        // `_pendingAccRewardPerShare` — but `currentApyBps` reads off `rewardRate`, so the
+        // screen advertised a yield the pool could not fund. This contract says at the top that
+        // it does not do that.
+        rewardRate = rewardReserve / duration;
         rewardsEndAt = block.timestamp + duration;
         lastRewardTime = block.timestamp;
 
@@ -297,10 +305,22 @@ contract SakuStaking is Ownable, ReentrancyGuard {
     /// @dev Bounded by `rewardReserve` — staked principal can never be withdrawn by the owner,
     ///      which is the whole point of separating the two balances.
     function withdrawUnusedRewards(uint256 amount) external onlyOwner {
+        // Settle first, then check. `_updatePool` reduces `rewardReserve` by whatever accrued
+        // since it last ran, so a bound tested before it is tested against a number that is
+        // about to shrink. The subtraction below would then underflow and revert, which is safe
+        // but reads as a mysterious failure on a withdrawal that looked valid.
+        _updatePool();
         if (amount > rewardReserve) revert InvalidAmount();
 
-        _updatePool();
         rewardReserve -= amount;
+
+        // Taking tokens out without slowing the stream is what made an unfundable `rewardRate`
+        // reachable at all: the reserve empties before `rewardsEndAt`, accrual silently truncates
+        // against the cap, and the advertised APY keeps quoting the old rate. Re-derive it from
+        // what is actually left over the time that is actually left.
+        uint256 remaining = block.timestamp < rewardsEndAt ? rewardsEndAt - block.timestamp : 0;
+        rewardRate = remaining > 0 ? rewardReserve / remaining : 0;
+
         stakingToken.safeTransfer(msg.sender, amount);
     }
 }
