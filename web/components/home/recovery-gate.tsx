@@ -69,14 +69,19 @@ export default function RecoveryGate() {
       router.replace("/security/setup")
     }
 
+    // Poll, for the one case an immediate check cannot settle: the first-run tour closes without
+    // telling anyone, and a new account should reach the setup the moment it does.
+    //
+    // The interval is created before the immediate check below, and that order is load-bearing:
+    // `evaluate` clears `timer`, and calling it while this `const` is still in its temporal dead
+    // zone threw a ReferenceError that took Home down for exactly the accounts this gate is for.
+    const timer = setInterval(evaluate, 1200)
+
     // Run once before the first tick. Everyone who is not mid-tour — which is everyone but a
     // brand-new signup — was otherwise watching Home for 1.2 seconds before being moved off it,
     // long enough to read as a misfire rather than as a destination.
     evaluate()
 
-    // Then poll, for the one case the immediate check cannot settle: the first-run tour closes
-    // without telling anyone, and a new account should reach the setup the moment it does.
-    const timer = setInterval(evaluate, 1200)
     return () => clearInterval(timer)
   }, [isLoading, isAuthenticated, needsSetup, router])
 

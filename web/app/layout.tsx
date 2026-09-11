@@ -102,7 +102,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`overflow-x-hidden ${geist.variable} ${geistMono.variable} ${spaceMono.variable} ${caveat.variable}`}>
       <head>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css" />
+        {/*
+          `precedence` makes this a stylesheet resource React hoists and dedupes, instead of a
+          plain element hydration has to find at a position in <head>. Without it, any whitespace
+          text node in <head> ends the search: Netlify injects a hosting comment and two <meta>
+          tags there, newline-separated, and every page threw hydration error #418 in production
+          while `next start` locally — which injects nothing — stayed clean.
+        */}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.3.2/css/flag-icons.min.css" precedence="default" />
         {/*
           The CSP lives in middleware.ts, as a header, and only there. A <meta> CSP here used to
           declare a second, narrower policy — browsers enforce the intersection of the two, so
