@@ -2,7 +2,7 @@ import React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 const cardVariants = cva(
-  'rounded-2xl sm:rounded-3xl border transition-all duration-200',
+  'rounded-[clamp(24px,6.25vw,32px)] border transition-all duration-200',
   {
     variants: {
       variant: {
@@ -14,9 +14,9 @@ const cardVariants = cva(
       },
       padding: {
         none: 'p-0',
-        sm: 'p-3 sm:p-4',
-        md: 'p-4 sm:p-6',
-        lg: 'p-6 sm:p-8',
+        sm: 'p-[clamp(12px,3.13vw,16px)]',
+        md: 'p-[clamp(16px,4.69vw,24px)]',
+        lg: 'p-[clamp(24px,6.25vw,32px)]',
       },
     },
     defaultVariants: {
@@ -57,7 +57,7 @@ interface CardTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {}
 const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
   ({ className, ...props }, ref) => (
     <h3
-      className={`text-lg sm:text-xl font-bold text-foreground ${className || ''}`}
+      className={`text-[length:clamp(17px,3.91vw,20px)] font-bold text-foreground ${className || ''}`}
       ref={ref}
       {...props}
     />
@@ -84,7 +84,7 @@ interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(
   ({ className, ...props }, ref) => (
-    <div className={`pt-2 sm:pt-4 ${className || ''}`} ref={ref} {...props} />
+    <div className={`pt-[clamp(8px,3.13vw,16px)] ${className || ''}`} ref={ref} {...props} />
   )
 )
 
@@ -94,7 +94,7 @@ interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
   ({ className, ...props }, ref) => (
-    <div className={`flex items-center pt-2 sm:pt-4 ${className || ''}`} ref={ref} {...props} />
+    <div className={`flex items-center pt-[clamp(8px,3.13vw,16px)] ${className || ''}`} ref={ref} {...props} />
   )
 )
 

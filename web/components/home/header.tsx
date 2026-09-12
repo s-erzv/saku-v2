@@ -23,15 +23,15 @@ export default function HomeHeader() {
     : (user?.phone_hash.slice(-2).toUpperCase() ?? "S")
 
   return (
-    <header className="relative z-50 px-5 sm:px-6 pt-8 pb-4 max-w-lg mx-auto font-sans">
+    <header className="relative z-50 px-[clamp(18px,4.69vw,24px)] pt-[clamp(24px,6.25vw,32px)] pb-[clamp(12px,3.13vw,16px)] max-w-lg mx-auto font-sans">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="flex items-center gap-[clamp(8px,2.34vw,12px)] flex-1 min-w-0">
           <div className="relative shrink-0">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="group relative flex items-center justify-center transition-transform active:scale-95"
             >
-              <div className="relative w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+              <div className="relative w-[clamp(36px,9.38vw,48px)] h-[clamp(36px,9.38vw,48px)] rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
                 {user?.avatar_url ? (
                   <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
                 ) : (
@@ -63,17 +63,17 @@ export default function HomeHeader() {
           </div>
 
           <div className="flex flex-col min-w-0 justify-center">
-            <p className="text-sm font-medium text-gray-500 leading-tight mb-0.5">Welcome,</p>
-            <p className="text-xl font-bold text-slate-900 truncate tracking-tight leading-tight">{label}</p>
+            <p className="text-[length:clamp(11px,2.73vw,14px)] font-medium text-gray-500 leading-tight mb-0.5">Welcome,</p>
+            <p className="text-[length:clamp(15px,3.91vw,20px)] font-bold text-slate-900 truncate tracking-tight leading-tight">{label}</p>
           </div>
         </div>
 
         <Link
           href="/notifications"
-          className="relative shrink-0 w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
+          className="relative shrink-0 w-[clamp(34px,8.59vw,44px)] h-[clamp(34px,8.59vw,44px)] rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
           aria-label="Notifications"
         >
-          <Bell className="w-5 h-5 text-slate-700" />
+          <Bell className="w-[clamp(15px,3.91vw,20px)] h-[clamp(15px,3.91vw,20px)] text-slate-700" />
           {unreadCount > 0 && (
             <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
           )}

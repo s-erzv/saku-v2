@@ -32,7 +32,7 @@ export default function WalletCard({ address }: { address: string }) {
   const needsGas = Number(nativeBalance) === 0
 
   return (
-    <section className="max-w-lg mx-auto px-5 sm:px-6">
+    <section className="max-w-lg mx-auto px-[clamp(18px,4.69vw,24px)]">
       <div
         className="rounded-3xl p-5 text-white shadow-lg"
         style={{ background: "linear-gradient(135deg, #1f2937 0%, #0f172a 100%)" }}

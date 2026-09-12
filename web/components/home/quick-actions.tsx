@@ -45,6 +45,25 @@
  * one revision, which meant six WebGL contexts and six animation loops on the most-visited
  * screen in the app; the glass revisions meant seven SVG filter graphs. Nothing in this section
  * runs a loop now except the aurora, and that one animates transforms only.
+ *
+ * ## SCALE
+ *
+ * Every measurement here is `clamp(floor, N vw, desktop)` instead of a `sm:` pair. The reason is
+ * that the app column is `max-w-lg`, so it stops growing at a 512px viewport: below that the
+ * column *is* the viewport, so `vw` tracks the column exactly, and above it every clamp is
+ * already pinned to its desktop value. One design, drawn at whatever size the column happens
+ * to be, rather than a roomy design and a cramped one swapping over at 640px.
+ *
+ * The middle term is always `desktop / 5.12` vw, which is what makes it land on the desktop
+ * value at 512px.
+ *
+ * The floors are not all on the same ratio, and that is the part that was tuned by looking at a
+ * real phone rather than calculated. A first pass floored everything near 0.76 of its desktop
+ * value, which on a 360px screen made the icon the biggest thing in a 99px tile while the two
+ * lines of text underneath it wrapped and clipped. The tile read as an icon with some debris
+ * under it. So the icon falls further than the rest, to 28px against 44px, and the text falls
+ * less: the room the icon gives up is exactly the room "To a phone number" needs to stay on one
+ * line. Nothing here is allowed below 8px.
  */
 
 import { useRouter } from "next/navigation"
@@ -90,8 +109,14 @@ export default function QuickActions() {
           heading that simply ends. */}
       <SectionHeading title="Main Services" />
 
-      <GlowCard animated className="p-3">
-        <div className="grid w-full grid-cols-2 sm:grid-cols-3 gap-2.5">
+      <GlowCard animated className="p-[clamp(8px,2.34vw,12px)]">
+        {/* Three across at every width, so the section reads the same on a phone as on a
+            desktop. It used to fall to two below 640px, which reflowed six tiles from two rows
+            into three — the one place in the app where the layout changed shape at all.
+            Every size below is a `clamp` rather than a breakpoint, for the reason in the
+            SCALE note at the top of the file: one design, drawn smaller when the column is
+            narrower, instead of two designs that swap over at 640px. */}
+        <div className="grid w-full grid-cols-3 gap-[clamp(6px,1.95vw,10px)]">
         {quickActions.map((action) => {
           const Icon = action.icon
           const disabled = !walletAddress || isLoading || !action.ready
@@ -102,22 +127,30 @@ export default function QuickActions() {
               onClick={() => router.push(action.href)}
               disabled={disabled}
               title={!action.ready ? "Coming soon" : undefined}
-              className="group flex min-w-0 flex-col items-start gap-3 rounded-[18px] border border-black/[0.10] bg-white/70 p-3 text-left transition-[background-color,border-color,transform] duration-200 hover:border-black/[0.18] hover:bg-white/90 active:scale-[0.98] disabled:opacity-40 disabled:hover:border-black/[0.10] disabled:hover:bg-white/70 disabled:active:scale-100"
+              className="group flex min-w-0 flex-col items-start gap-[clamp(7px,2.34vw,12px)] rounded-[clamp(12px,3.52vw,18px)] border border-black/[0.10] bg-white/70 p-[clamp(8px,2.34vw,12px)] text-left transition-[background-color,border-color,transform] duration-200 hover:border-black/[0.18] hover:bg-white/90 active:scale-[0.98] disabled:opacity-40 disabled:hover:border-black/[0.10] disabled:hover:bg-white/70 disabled:active:scale-100"
             >
               <span
-                className={`w-11 h-11 rounded-2xl ${action.color} flex items-center justify-center transition-transform duration-300 group-enabled:group-hover:-translate-y-0.5`}
+                className={`w-[clamp(28px,8.59vw,44px)] h-[clamp(28px,8.59vw,44px)] rounded-[clamp(10px,3.13vw,16px)] ${action.color} flex items-center justify-center transition-transform duration-300 group-enabled:group-hover:-translate-y-0.5`}
               >
-                <Icon className="w-[22px] h-[22px]" strokeWidth={2.5} />
+                <Icon className="w-[clamp(14px,4.30vw,22px)] h-[clamp(14px,4.30vw,22px)]" strokeWidth={2.5} />
               </span>
 
               <span className="block w-full min-w-0">
-                <span className="flex items-center gap-1">
-                  <span className="text-[13px] font-bold text-slate-900 truncate">{action.label}</span>
-                  <ChevronRight className="w-3.5 h-3.5 shrink-0 text-black/25 transition-transform group-enabled:group-hover:translate-x-0.5" />
+                <span className="flex items-center gap-[clamp(2px,0.78vw,4px)]">
+                  <span className="text-[length:clamp(10px,2.54vw,13px)] font-bold text-slate-900 truncate">
+                    {action.label}
+                  </span>
+                  {/* Decorative — the whole tile is the button. It shrinks with everything else
+                      rather than disappearing below 640px, which is what used to make the phone
+                      and the desktop draw a different tile. */}
+                  <ChevronRight className="w-[clamp(9px,2.73vw,14px)] h-[clamp(9px,2.73vw,14px)] shrink-0 text-black/25 transition-transform group-enabled:group-hover:translate-x-0.5" />
                 </span>
                 {/* Room to breathe between the name and the line under it. They were a
                     half-step apart and read as one wrapped sentence. */}
-                <span className="block text-[10px] leading-tight text-black/45 truncate">
+                {/* Wraps rather than truncates: "To a phone number" does not fit one 80px line,
+                    and a clipped half-sentence is worse than two short ones. Grid rows stretch
+                    together, so a two-line tile does not break the row. */}
+                <span className="block text-[length:clamp(8px,1.95vw,10px)] leading-tight text-black/45 line-clamp-2">
                   {action.description}
                 </span>
               </span>

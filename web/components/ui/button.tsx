@@ -2,7 +2,7 @@ import React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-sm sm:text-base transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 dark:focus:ring-offset-background',
+  'inline-flex items-center justify-center gap-2 rounded-2xl font-semibold text-[length:clamp(13px,3.13vw,16px)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-0 dark:focus:ring-offset-background',
   {
     variants: {
       variant: {
@@ -14,10 +14,10 @@ const buttonVariants = cva(
         destructive: 'bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-md',
       },
       size: {
-        sm: 'px-3 sm:px-4 py-2 sm:py-2.5',
-        md: 'px-4 sm:px-6 py-2.5 sm:py-3',
-        lg: 'px-6 sm:px-8 py-3 sm:py-4',
-        icon: 'h-9 w-9 sm:h-10 sm:w-10',
+        sm: 'px-[clamp(12px,3.13vw,16px)] py-[clamp(8px,1.95vw,10px)]',
+        md: 'px-[clamp(16px,4.69vw,24px)] py-[clamp(9px,2.34vw,12px)]',
+        lg: 'px-[clamp(24px,6.25vw,32px)] py-[clamp(12px,3.13vw,16px)]',
+        icon: 'h-[clamp(36px,7.81vw,40px)] w-[clamp(36px,7.81vw,40px)]',
         iconSm: 'h-8 w-8',
       },
     },
@@ -45,7 +45,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     >
       {isLoading && (
         <svg
-          className="h-4 w-4 sm:h-5 sm:w-5 animate-spin"
+          className="h-[clamp(16px,3.91vw,20px)] w-[clamp(16px,3.91vw,20px)] animate-spin"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"

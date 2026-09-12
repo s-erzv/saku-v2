@@ -45,7 +45,7 @@ export default function HomePage() {
 
       <HomeHeader />
 
-      <main className="max-w-lg mx-auto px-4 space-y-6 py-2 relative z-10">
+      <main className="max-w-lg mx-auto px-[clamp(12px,3.13vw,16px)] space-y-[clamp(16px,4.69vw,24px)] py-2 relative z-10">
         <BalanceCardSection />
 
         {/* Only renders while the wallet is still being derived, or if that failed. Once the

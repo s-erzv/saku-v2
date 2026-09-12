@@ -113,9 +113,10 @@ export default function CountryCodeDropdown({ onSelect, selectedCode }: CountryC
       role="dialog"
       aria-modal="true"
       aria-label="Select country"
-      // `p-4` is what stops the panel touching the screen edges, and the safe-area padding keeps
-      // it clear of the notch and the home indicator on a phone.
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150"
+      // A bottom sheet at every width. It used to become a centred modal from 640px up, which
+      // made the same control two different shapes depending on the screen. The safe-area
+      // padding keeps it clear of the notch and the home indicator on a phone.
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm p-0 animate-in fade-in duration-150"
       style={{
         paddingTop: 'max(0px, env(safe-area-inset-top))',
         paddingBottom: 'max(0px, env(safe-area-inset-bottom))',
@@ -125,7 +126,10 @@ export default function CountryCodeDropdown({ onSelect, selectedCode }: CountryC
       <div
         // Stops a click inside the panel from reaching the overlay's close handler.
         onClick={(event) => event.stopPropagation()}
-        className="w-full sm:max-w-sm max-h-[85vh] sm:max-h-[70vh] bg-white rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
+        // `max-w-lg` is the app column's own width, so on a desktop the sheet rises under the
+        // same edges the screen behind it uses. Below 512px it never binds, so a phone is
+        // untouched by it.
+        className="w-full max-w-lg max-h-[85vh] bg-white rounded-t-3xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
       >
         <div className="px-4 pt-4 pb-3 border-b border-black/5 shrink-0">
           <div className="flex items-center gap-2">

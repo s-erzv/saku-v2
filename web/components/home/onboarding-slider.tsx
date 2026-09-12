@@ -160,7 +160,7 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
             <div className="w-full max-w-lg h-[100dvh] flex flex-col relative overflow-hidden bg-[#FFFCF9] border-x border-zinc-100/50 shadow-sm">
               
               {/* Top Progress Indicators */}
-              <div className="absolute top-0 left-0 right-0 z-[110] flex gap-1.5 p-6 pt-8 sm:pt-10">
+              <div className="absolute top-0 left-0 right-0 z-[110] flex gap-1.5 p-6 pt-[clamp(32px,7.81vw,40px)]">
                 {ONBOARDING_DATA.map((_, i) => (
                   <div key={i} className="h-[4px] flex-grow bg-zinc-200/60 rounded-full overflow-hidden">
                     <motion.div 
@@ -192,7 +192,7 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
                   <SwiperSlide key={index} className="flex flex-col h-full px-8 pt-24 pb-6 box-border">
                     
                     {/* Area Teks */}
-                    <div className="shrink-0 space-y-5 sm:space-y-6 relative z-10">
+                    <div className="shrink-0 space-y-[clamp(20px,4.69vw,24px)] relative z-10">
                       <motion.div
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -208,7 +208,7 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
                       
                       <motion.h2 
                         data-swiper-parallax="-300"
-                        className="text-4xl sm:text-5xl font-bold tracking-tighter text-zinc-900 leading-[1.05] py-1"
+                        className="text-[length:clamp(36px,9.38vw,48px)] font-bold tracking-tighter text-zinc-900 leading-[1.05] py-1"
                       >
                         {item.title.split('\n').map((line, i) => (
                           <span key={i} className="block">{line}</span>
@@ -217,7 +217,7 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
   
                       <motion.p 
                         data-swiper-parallax="-150"
-                        className="text-zinc-500 text-base sm:text-lg font-light leading-relaxed max-w-[280px]"
+                        className="text-zinc-500 text-[length:clamp(16px,3.52vw,18px)] font-light leading-relaxed max-w-[280px]"
                       >
                         {item.description}
                       </motion.p>
@@ -231,7 +231,7 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
                         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                         className="absolute inset-0 flex items-center justify-start" 
                       >
-                        <div className="relative w-full h-full max-w-[220px] max-h-[220px] sm:max-w-[260px] sm:max-h-[260px]">
+                        <div className="relative w-full h-full max-w-[clamp(220px,50.78vw,260px)] max-h-[clamp(220px,50.78vw,260px)]">
                           <Image 
                             src={item.image} 
                             alt="Onboarding Illustration" 
@@ -248,7 +248,7 @@ export default function OnboardingSlider({ force = false, onClose }: OnboardingS
               </Swiper>
   
               {/* BOTTOM INTERACTION AREA */}
-              <div className="shrink-0 w-full p-6 sm:p-8 bg-white/95 backdrop-blur-md flex flex-col items-center gap-3 border-t border-zinc-100 relative z-20">
+              <div className="shrink-0 w-full p-[clamp(24px,6.25vw,32px)] bg-white/95 backdrop-blur-md flex flex-col items-center gap-3 border-t border-zinc-100 relative z-20">
                 <Button 
                   onClick={handlePrimary}
                   style={{ backgroundColor: SAKU_ORANGE }}

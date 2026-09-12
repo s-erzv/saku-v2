@@ -66,7 +66,7 @@ export default function BalanceCardSection() {
   }
 
   return (
-    <div className="pt-2 sm:pt-4 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
+    <div className="pt-[clamp(8px,3.13vw,16px)] animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
       {/* React Bits' BorderGlow, in Saku's oranges, doing the job the plain `border-white/10`
           used to: it lights the edge nearest the pointer and sweeps once on mount. `animated` is
           left off — a rim that travels on its own would compete with the waves behind it, and
@@ -81,7 +81,7 @@ export default function BalanceCardSection() {
         fillOpacity={0.45}
         className="w-full"
       >
-      <div className="relative w-full rounded-[2.5rem] p-6 sm:p-7 text-white overflow-hidden transition-all duration-500 group">
+      <div className="relative w-full rounded-[2.5rem] p-[clamp(19px,5.47vw,28px)] text-white overflow-hidden transition-all duration-500 group">
         <div className="absolute inset-0 bg-[#0A0A0A]" />
 
         {/* React Bits' GradientWaves, recoloured to Saku's orange. These numbers were arrived at
@@ -114,15 +114,15 @@ export default function BalanceCardSection() {
             light to fall on. Without it the gradient is just a gradient. */}
         <SandTexture opacity={0.3} grainSize={110} />
 
-        <div className="relative h-full flex flex-col justify-between gap-5 z-10">
+        <div className="relative h-full flex flex-col justify-between gap-[clamp(14px,3.91vw,20px)] z-10">
           {/* Band one: whose wallet this is, and nothing else. The credit-card chip that used
               to sit here said "card" on a screen nobody mistakes for anything else, and the chain
               chip that replaced it named a testnet to people who will never type a chain id. */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="p-1 bg-white/5 rounded-lg backdrop-blur-sm border border-white/10 shrink-0">
-              <img src="/logo.png" alt="" className="w-7 h-7 object-contain" />
+          <div className="flex items-center gap-[clamp(6px,1.56vw,8px)] min-w-0">
+            <div className="p-[clamp(3px,0.78vw,4px)] bg-white/5 rounded-lg backdrop-blur-sm border border-white/10 shrink-0">
+              <img src="/logo.png" alt="" className="w-[clamp(20px,5.47vw,28px)] h-[clamp(20px,5.47vw,28px)] object-contain" />
             </div>
-            <span className="font-bold tracking-tight text-lg bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent">
+            <span className="font-bold tracking-tight text-[length:clamp(13px,3.52vw,18px)] bg-gradient-to-br from-white to-white/60 bg-clip-text text-transparent">
               Saku.
             </span>
           </div>
@@ -135,33 +135,33 @@ export default function BalanceCardSection() {
               The eye sits against the number, not against the label. It hides the figure, so it
               belongs next to the figure; parked by the caption it read as a control over the
               words. */}
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold text-amber-500/90">Current balance</p>
+          <div className="space-y-[clamp(3px,0.78vw,4px)]">
+            <p className="text-[length:clamp(8px,2.15vw,11px)] font-semibold text-amber-500/90">Current balance</p>
 
-            <div className="flex items-center gap-3">
-              <h2 className="text-4xl sm:text-[2.75rem] font-bold tracking-tighter leading-none bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">
+            <div className="flex items-center gap-[clamp(8px,2.34vw,12px)]">
+              <h2 className="text-[length:clamp(31px,8.59vw,44px)] font-bold tracking-tighter leading-none bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">
                 {balanceVisible ? `$ ${displayBalance}` : "$ ••••••"}
               </h2>
               <button
                 onClick={() => setBalanceVisible(!balanceVisible)}
                 aria-label={balanceVisible ? "Hide balance" : "Show balance"}
-                className="p-1.5 shrink-0 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-[clamp(4px,1.17vw,6px)] shrink-0 hover:bg-white/10 rounded-lg transition-colors"
               >
                 {balanceVisible ? (
-                  <Eye className="w-4 h-4 text-white/40" />
+                  <Eye className="w-[clamp(11px,3.13vw,16px)] h-[clamp(11px,3.13vw,16px)] text-white/40" />
                 ) : (
-                  <EyeOff className="w-4 h-4 text-white/40" />
+                  <EyeOff className="w-[clamp(11px,3.13vw,16px)] h-[clamp(11px,3.13vw,16px)] text-white/40" />
                 )}
               </button>
               {(balancesLoading || isLoading) && (
-                <Loader2 className="w-5 h-5 animate-spin text-amber-500 shrink-0" />
+                <Loader2 className="w-[clamp(14px,3.91vw,20px)] h-[clamp(14px,3.91vw,20px)] animate-spin text-amber-500 shrink-0" />
               )}
             </div>
 
             {/* Absent rather than zeroed while the rate is still in flight. An exchange figure
                 that reads 0 is worse than no figure: it looks like an answer. */}
             {localBalance && (
-              <p className="text-sm text-white/40 font-medium">
+              <p className="text-[length:clamp(10px,2.73vw,14px)] text-white/40 font-medium">
                 {balanceVisible ? `≈ ${localBalance}` : `≈ ${localCurrency?.symbol} ••••••`}
               </p>
             )}
@@ -172,7 +172,7 @@ export default function BalanceCardSection() {
               The address gets a surface because it is the only thing here anyone interacts with —
               glass that refracts the moving mesh behind it, so the card's one animation shows
               through the one element you touch. The holder gets nothing; see below. */}
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-[clamp(7px,1.95vw,10px)]">
             {/* Upstream's own numbers, near enough. The previous settings had the refraction
                 dialled down to a third of default and a tint over the top, which is why it read
                 as a grey box rather than as glass: `backgroundOpacity` 0 means the panel has no
@@ -191,10 +191,10 @@ export default function BalanceCardSection() {
               blueOffset={20}
               className="min-w-0"
             >
-              <div className="w-full min-w-0 px-1.5">
-                <p className="text-[10px] text-white/45 font-medium mb-1">Wallet address</p>
-                <div className="flex items-center gap-1.5">
-                  <p className="font-mono text-[13px] tracking-tight text-amber-100/90 truncate">
+              <div className="w-full min-w-0 px-[clamp(4px,1.17vw,6px)]">
+                <p className="text-[length:clamp(7px,1.95vw,10px)] text-white/45 font-medium mb-[clamp(3px,0.78vw,4px)]">Wallet address</p>
+                <div className="flex items-center gap-[clamp(4px,1.17vw,6px)]">
+                  <p className="font-mono text-[length:clamp(9px,2.54vw,13px)] tracking-tight text-amber-100/90 truncate">
                     {isLoading
                       ? "••••••••••"
                       : walletAddress
@@ -208,9 +208,9 @@ export default function BalanceCardSection() {
                       className="p-0.5 shrink-0 hover:bg-white/10 rounded transition-all active:scale-90"
                     >
                       {copied ? (
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                        <CheckCircle className="w-[clamp(10px,2.73vw,14px)] h-[clamp(10px,2.73vw,14px)] text-emerald-400" />
                       ) : (
-                        <Copy className="w-3.5 h-3.5 text-white/40" />
+                        <Copy className="w-[clamp(10px,2.73vw,14px)] h-[clamp(10px,2.73vw,14px)] text-white/40" />
                       )}
                     </button>
                   )}
@@ -220,9 +220,9 @@ export default function BalanceCardSection() {
 
             {/* No surface. The address is data you copy, so it earns a box to point at; a name
                 is just a name, and boxing it made the card read as two buttons. */}
-            <div className="px-1.5 py-2.5 min-w-0 self-center text-right">
-              <p className="text-[10px] text-white/35 font-medium mb-1">Holder</p>
-              <p className="text-[13px] font-semibold truncate text-white/90">
+            <div className="px-[clamp(4px,1.17vw,6px)] py-[clamp(7px,1.95vw,10px)] min-w-0 self-center text-right">
+              <p className="text-[length:clamp(7px,1.95vw,10px)] text-white/35 font-medium mb-[clamp(3px,0.78vw,4px)]">Holder</p>
+              <p className="text-[length:clamp(9px,2.54vw,13px)] font-semibold truncate text-white/90">
                 {user?.display_name || "Saku User"}
               </p>
             </div>
