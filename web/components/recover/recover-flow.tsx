@@ -38,7 +38,8 @@ type StageAction = "signin" | "restart"
 /** Why `/api/recovery/start` said no. Each one gets its own sentence; see the note at the top. */
 type Refusal =
   | { code: "NOT_RECOVERABLE" }
-  | { code: "NO_ACTIVE_GUARDIAN"; activeFrom: string | null }
+  /** `active` separates "none at all" from "one, and a recovery needs two". */
+  | { code: "NO_ACTIVE_GUARDIAN"; activeFrom: string | null; active: number; required: number }
 
 /**
  * What `/api/recovery/start` answered when it did not refuse.
@@ -67,6 +68,12 @@ const STAGE_COPY: Record<
   no_guardian: {
     title: "Email confirmed, but there is no guardian to ask.",
     body: "This account has no active guardian, and a backup email on its own is not enough to hand an account to a new number. There is no way to complete this recovery.",
+    tone: "bad",
+    action: "signin",
+  },
+  not_enough_guardians: {
+    title: "Email confirmed, but there are not enough guardians to ask.",
+    body: "Handing an account to a new number takes two guardians agreeing, and this account has one. A backup email and a single guardian are not enough. Guardians can only be added from an account that can still sign in, so there is no way to complete this recovery from here.",
     tone: "bad",
     action: "signin",
   },
@@ -220,7 +227,12 @@ export default function RecoverFlow() {
         return
       }
       if (data.code === "NO_ACTIVE_GUARDIAN") {
-        setRefusal({ code: "NO_ACTIVE_GUARDIAN", activeFrom: data.activeFrom ?? null })
+        setRefusal({
+          code: "NO_ACTIVE_GUARDIAN",
+          activeFrom: data.activeFrom ?? null,
+          active: Number(data.active ?? 0),
+          required: Number(data.required ?? 2),
+        })
         return
       }
       if (!response.ok) {
@@ -487,9 +499,33 @@ export default function RecoverFlow() {
           </section>
         ) : refusal ? (
           <section className="rounded-[2rem] border border-[#FDE68A] bg-[#FFFBEB] p-6 space-y-3">
-            {refusal.code === "NO_ACTIVE_GUARDIAN" && refusal.activeFrom ? (
+            {refusal.code === "NO_ACTIVE_GUARDIAN" && refusal.active > 0 ? (
               <>
-                <h2 className="font-bold tracking-tight leading-snug">Your guardian isn&apos;t ready yet.</h2>
+                <h2 className="font-bold tracking-tight leading-snug">
+                  This account needs {refusal.required} guardians, and has {refusal.active}.
+                </h2>
+                <p className="text-sm leading-relaxed text-zinc-700">
+                  A recovery hands the account to a new number, so {refusal.required} guardians have to
+                  agree — one on their own is not enough.
+                </p>
+                {refusal.activeFrom ? (
+                  <p className="text-sm leading-relaxed text-zinc-700">
+                    Another guardian accepted recently and can help from{" "}
+                    <span className="font-semibold">{formatMoment(refusal.activeFrom)}</span>. Try again
+                    after that.
+                  </p>
+                ) : (
+                  <p className="text-sm leading-relaxed text-zinc-700">
+                    Guardians can only be added from an account you can still sign in to, so this
+                    number cannot be recovered.
+                  </p>
+                )}
+              </>
+            ) : refusal.code === "NO_ACTIVE_GUARDIAN" && refusal.activeFrom ? (
+              <>
+                <h2 className="font-bold tracking-tight leading-snug">
+                  Your guardians aren&apos;t ready yet.
+                </h2>
                 <p className="text-sm leading-relaxed text-zinc-700">
                   Your backup email is set, but a guardian can only confirm a recovery 24 hours after
                   accepting. Yours can help from{" "}
@@ -513,8 +549,8 @@ export default function RecoverFlow() {
                   Sorry, this number can&apos;t be recovered.
                 </h2>
                 <p className="text-sm leading-relaxed text-zinc-700">
-                  Recovery only works if the account had a backup email and an active guardian set up
-                  before the number was lost.
+                  Recovery only works if the account had a backup email and two active guardians set
+                  up before the number was lost.
                 </p>
                 <p className="text-sm leading-relaxed text-zinc-700">
                   Check that you typed the old number correctly — it has to be the number the account

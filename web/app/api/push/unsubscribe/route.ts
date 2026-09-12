@@ -24,7 +24,11 @@ export async function POST(request: Request) {
     // a device whose own subscription has already been revoked by the browser.
     const { error } = endpoint ? await query.eq('endpoint', endpoint) : await query;
 
-    if (error && error.code !== 'PGRST205' && error.code !== '42P01') throw error;
+    // A missing table, or one the server may not touch (42501), both mean there is no
+    // subscription to remove — which is the outcome the caller asked for. Turning the toggle off
+    // must not be the thing that fails.
+    const absent = new Set(['PGRST205', '42P01', '42501']);
+    if (error && !absent.has(error.code)) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error) {

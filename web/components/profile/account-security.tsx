@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { useAuth } from "@/hooks/useAuth"
 import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 import countryCodes from "@/lib/country-codes.json"
+import { MIN_GUARDIAN_QUORUM } from "@/lib/recovery"
 
 const SAKU_ORANGE = "#F0A353"
 
@@ -217,10 +218,30 @@ export default function AccountSecurity() {
   const activeGuardians = (guardians ?? []).filter((g) => g.state === "active").length
   const coolingMs = (guardians ?? []).filter((g) => g.state === "cooling_down").map((g) => g.cooldownMs)
   const emailVerified = email?.verified ?? false
-  // "On" means a recovery would work today: a confirmed email AND an active guardian, the same
-  // test the recovery screen applies. Either one alone used to read "Recovery is on", and the
-  // owner found out otherwise at the one moment they could no longer fix it.
-  const recoveryReady = emailVerified && activeGuardians > 0
+  // "On" means a recovery would work today: a confirmed email AND enough active guardians to
+  // reach a quorum, the same test the recovery screen applies. Either one alone used to read
+  // "Recovery is on", and the owner found out otherwise at the one moment they could no longer
+  // fix it — which is also why one active guardian does not read as on: a recovery needs
+  // MIN_GUARDIAN_QUORUM of them to agree.
+  const shortfall = Math.max(0, MIN_GUARDIAN_QUORUM - activeGuardians)
+  const recoveryReady = emailVerified && shortfall === 0
+
+  /**
+   * What to do about the guardians, for an owner whose email is already confirmed.
+   *
+   * Split out of the status ternary because there are four answers, not one: nobody invited, some
+   * invited and still cooling, enough cooling to close the gap on their own, and a real gap that
+   * needs another person. Saying "add a guardian" to someone who has one and is waiting on the
+   * second is the version of this that sends people to add a fourth.
+   */
+  const guardianAdvice =
+    shortfall === 0
+      ? null
+      : coolingMs.length >= shortfall
+        ? `${coolingMs.length === 1 ? "One more guardian" : "More guardians"} can help in ${hoursLeft(Math.min(...coolingMs))}. A recovery needs ${MIN_GUARDIAN_QUORUM} of them, so until then it would be refused.`
+        : activeGuardians > 0
+          ? `Add ${shortfall === 1 ? "one more guardian" : `${shortfall} more guardians`}. A recovery needs ${MIN_GUARDIAN_QUORUM} guardians to agree, so one cannot move this account on their own.`
+          : `Add ${MIN_GUARDIAN_QUORUM} guardians. A backup email on its own cannot move this account to a new number.`
   const status = recoveryReady
     ? {
         title: "Recovery is on",
@@ -235,9 +256,7 @@ export default function AccountSecurity() {
           title: "Recovery is not ready yet",
           body: !emailVerified
             ? "Add a backup email. Every recovery starts with a link sent to it, so guardians alone cannot recover this account."
-            : coolingMs.length > 0
-              ? `Your guardian can help in ${hoursLeft(Math.min(...coolingMs))}. Until then, a recovery would be refused.`
-              : "Add a guardian. A backup email on its own cannot move this account to a new number.",
+            : (guardianAdvice ?? ""),
         }
   const atLimit = (guardians ?? []).length >= limit
   const showManualForm = enteringNumber || (contacts !== null && contacts.length === 0)

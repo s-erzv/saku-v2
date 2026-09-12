@@ -48,7 +48,7 @@ export default function RecentTransactions() {
     <section className="animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
       <SectionHeading title="Recent Activity" href="/transactions" linkLabel="View all" />
 
-      <div className="rounded-3xl border border-white/60 bg-white/30 backdrop-blur-xl p-2.5">
+      <div className="rounded-3xl border border-gray/60 bg-white/30 backdrop-blur-xl p-2.5">
         {isLoading && transactions.length === 0 ? (
           <div className="py-10 flex justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-black/20" />

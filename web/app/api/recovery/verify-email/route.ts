@@ -21,7 +21,12 @@ import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { hashToken, tokenMatches } from '@/lib/email';
 import { isGuardianEligible, isGuardianReachable, type GuardianRow } from '@/lib/guardians';
 import { namesSeenBy, UNKNOWN_PERSON } from '@/lib/guardian-names';
-import { recoveryStage, requiredGuardianApprovals, type RecoveryRequestRow } from '@/lib/recovery';
+import {
+  canFormGuardianQuorum,
+  recoveryStage,
+  requiredGuardianApprovals,
+  type RecoveryRequestRow,
+} from '@/lib/recovery';
 import { sendPushNotification } from '@/lib/push';
 import { appOrigin } from '@/lib/app-url';
 import { createGuardianToken, decryptPhone } from '@/lib/guardian-invite';
@@ -163,7 +168,11 @@ export async function GET(request: Request) {
       // guardians mid-request cannot lower the bar and adding some cannot pad it. Written before
       // the email is marked confirmed, and idempotently, so a failure part-way leaves a request
       // this same link can finish setting up.
-      if (eligible.length > 0) {
+      //
+      // A panel too short to reach a quorum is not written at all. `start` already refuses those,
+      // so reaching here means a guardian was revoked in between — and seating one guardian on a
+      // request that needs two would ask them to vote on something their vote can never carry.
+      if (canFormGuardianQuorum(eligible.length)) {
         const { error: panelError } = await supabase.from('recovery_request_guardians').upsert(
           eligible.map((g) => ({ recovery_request_id: recovery.id, guardian_id: g.id })),
           { onConflict: 'recovery_request_id,guardian_id', ignoreDuplicates: true }
@@ -188,7 +197,9 @@ export async function GET(request: Request) {
         .maybeSingle();
 
       firstConfirmation = !!confirmed;
-      notify = eligible as PanelMember[];
+      // Only guardians who actually hold a seat are asked. Without the guard, a panel short of a
+      // quorum was never written, yet its guardian still got the message.
+      notify = canFormGuardianQuorum(eligible.length) ? (eligible as PanelMember[]) : [];
     }
 
     // Guardians hear about it only once the address has answered — earlier, anyone who knows a
@@ -240,9 +251,16 @@ export async function GET(request: Request) {
 
     const panel = seats?.length ?? 0;
 
-    // A request with nobody on its panel cannot finish, and saying so here is kinder than a wait
-    // that never ends. The screen explains the rest.
-    if (panel === 0) return NextResponse.redirect(recoverUrl(request, 'no_guardian'));
+    // A panel that cannot reach a quorum cannot finish, and saying so here is kinder than a wait
+    // that never ends. The screen explains the rest — and says which of the two it is, because
+    // "no guardian" to an owner who can see they have one reads as a bug.
+    if (!canFormGuardianQuorum(panel)) {
+      return NextResponse.redirect(
+        panel === 0
+          ? recoverUrl(request, 'no_guardian')
+          : recoverUrl(request, 'not_enough_guardians', { panel })
+      );
+    }
 
     return NextResponse.redirect(
       recoverUrl(request, 'awaiting_guardian', {

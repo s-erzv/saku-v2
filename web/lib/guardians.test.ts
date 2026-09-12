@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  countEligibleGuardians,
   isGuardianReachable,
   GUARDIAN_COOLING_PERIOD_MS,
   guardianCooldownRemainingMs,
@@ -14,6 +15,7 @@ import {
   nextGuardianActiveAt,
   type GuardianRow,
 } from '@/lib/guardians';
+import { canFormGuardianQuorum, MIN_GUARDIAN_QUORUM } from '@/lib/recovery';
 
 const NOW = Date.UTC(2026, 0, 10, 9, 0, 0);
 
@@ -143,9 +145,19 @@ describe('hasRecoveryPath', () => {
 
 describe('isRecoveryReady', () => {
   const matured = NOW + GUARDIAN_COOLING_PERIOD_MS;
+  const panel = (n: number) => Array.from({ length: n }, (_, i) => guardian({ id: `g-${i + 1}` }));
 
-  it('needs both a verified email and an active guardian', () => {
-    assert.equal(isRecoveryReady({ emailVerified: true, guardians: [guardian()], nowMs: matured }), true);
+  it('needs a verified email and a quorum of active guardians', () => {
+    assert.equal(
+      isRecoveryReady({ emailVerified: true, guardians: panel(MIN_GUARDIAN_QUORUM), nowMs: matured }),
+      true
+    );
+  });
+
+  it('is not ready on one active guardian', () => {
+    // This used to be the "on" state, and it is the hole the quorum floor closes: one person plus
+    // the backup email was the entire second factor.
+    assert.equal(isRecoveryReady({ emailVerified: true, guardians: panel(1), nowMs: matured }), false);
   });
 
   it('is not ready on an email alone', () => {
@@ -153,12 +165,53 @@ describe('isRecoveryReady', () => {
     assert.equal(isRecoveryReady({ emailVerified: true, guardians: [], nowMs: matured }), false);
   });
 
-  it('is not ready while the only guardian is still cooling down', () => {
-    assert.equal(isRecoveryReady({ emailVerified: true, guardians: [guardian()], nowMs: NOW + 60_000 }), false);
+  it('is not ready while a guardian needed for the quorum is still cooling down', () => {
+    const cooling = guardian({ id: 'g-2', effective_at: guardianEffectiveAt(matured).toISOString() });
+    assert.equal(
+      isRecoveryReady({ emailVerified: true, guardians: [guardian(), cooling], nowMs: matured }),
+      false
+    );
   });
 
-  it('is not ready on an active guardian without an email', () => {
-    assert.equal(isRecoveryReady({ emailVerified: false, guardians: [guardian()], nowMs: matured }), false);
+  it('is not ready while every guardian is still cooling down', () => {
+    assert.equal(
+      isRecoveryReady({ emailVerified: true, guardians: panel(2), nowMs: NOW + 60_000 }),
+      false
+    );
+  });
+
+  it('is not ready on active guardians without an email', () => {
+    assert.equal(isRecoveryReady({ emailVerified: false, guardians: panel(2), nowMs: matured }), false);
+  });
+
+  it('agrees with the panel rule it is built on', () => {
+    // The badge and the recovery gate must not be able to disagree about the same account.
+    for (let size = 0; size <= MAX_GUARDIANS; size++) {
+      assert.equal(
+        isRecoveryReady({ emailVerified: true, guardians: panel(size), nowMs: matured }),
+        canFormGuardianQuorum(size),
+        `an account with ${size} active guardians`
+      );
+    }
+  });
+});
+
+describe('countEligibleGuardians', () => {
+  const matured = NOW + GUARDIAN_COOLING_PERIOD_MS;
+
+  it('counts only guardians past their cooling period', () => {
+    const cooling = guardian({ id: 'g-2', effective_at: guardianEffectiveAt(matured).toISOString() });
+    assert.equal(countEligibleGuardians([guardian(), cooling], matured), 1);
+  });
+
+  it('does not count a revoked guardian', () => {
+    const revoked = guardian({ id: 'g-2', status: 'revoked' });
+    assert.equal(countEligibleGuardians([guardian(), revoked], matured), 1);
+  });
+
+  it('does not count an invitation nobody answered', () => {
+    const unanswered = guardian({ id: 'g-2', approved_at: null });
+    assert.equal(countEligibleGuardians([guardian(), unanswered], matured), 1);
   });
 });
 

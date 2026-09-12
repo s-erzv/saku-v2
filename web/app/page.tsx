@@ -26,7 +26,10 @@ const HERO_HAMSTERS = [
 const HERO_FADE = "linear-gradient(to bottom, #000 52%, transparent 100%)"
 
 const HERO_BADGES = [
-  { icon: ShieldCheck, label: "MPC-secured wallet" },
+  // Not "MPC-secured": the Web3Auth MPC integration was removed (see hooks/useMpcWallet.tsx), and
+  // a badge naming an architecture this app no longer runs is a claim that cannot be checked. What
+  // is true, and is the property a user can act on, is that no key material reaches the browser.
+  { icon: ShieldCheck, label: "Keys never in your browser" },
   { icon: Zap, label: "Settles in seconds" },
   { icon: Wallet, label: "No seed phrase" },
 ]

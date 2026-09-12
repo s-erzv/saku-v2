@@ -32,6 +32,8 @@
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 
+import { MIN_GUARDIAN_QUORUM } from "@/lib/recovery"
+
 import { useAuth } from "@/hooks/useAuth"
 import { isSnoozed } from "@/lib/recovery-snooze"
 
@@ -51,8 +53,12 @@ export default function RecoveryGate() {
   const router = useRouter()
   const { isLoading, isAuthenticated, recovery } = useAuth()
 
+  // A single guardian is no longer a finished panel — a recovery takes MIN_GUARDIAN_QUORUM of
+  // them — so an account with one still gets routed here. Invited-but-not-yet-active ones count:
+  // they are on the way, and nagging someone who has already asked two people is nagging.
   const needsSetup =
-    !recovery.emailVerified || recovery.activeGuardians + recovery.pendingGuardians === 0
+    !recovery.emailVerified ||
+    recovery.activeGuardians + recovery.pendingGuardians < MIN_GUARDIAN_QUORUM
 
   // A navigation is not idempotent the way rendering an overlay was, and `recovery` changing
   // while the route is already unwinding would fire a second one. Once is once.

@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     // Creating a fresh Privy wallet and overwriting the row is a deliberate cutover, not an
     // oversight: the old key material is held by a provider this app no longer calls, so the
     // address it derived cannot be signed for any more. On testnet the balance is re-mintable;
-    // see docs/mpc-setup.md.
+    // the custody model these cutovers moved through is described in `ARCHITECTURE.md`.
     const wallet = await createUserWallet(session.userId);
 
     // A custodial wallet another Saku account already holds is never bound to this one, whatever

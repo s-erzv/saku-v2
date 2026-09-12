@@ -10,6 +10,8 @@
  * grants power asks {@link isGuardianEligible}, never the string.
  */
 
+import { MIN_GUARDIAN_QUORUM } from '@/lib/recovery';
+
 /**
  * How long an approved guardian waits before they count.
  *
@@ -108,11 +110,15 @@ export function guardianCooldownRemainingMs(row: GuardianRow, nowMs: number = Da
 /**
  * Whether the account has any recovery factor at all.
  *
- * This decides whether to nudge someone to start setting recovery up: an account with neither
- * factor is the one that loses everything along with its number. It is NOT whether a recovery
- * would succeed. That takes a verified email AND a usable guardian — see
- * {@link isRecoveryReady} — and "guardians can be added later" does not rescue an email-only
- * account, because adding one needs a sign-in the owner no longer has.
+ * This decides whether to nudge someone to start setting recovery up at all: an account with
+ * neither factor is the one that loses everything along with its number. It is NOT whether a
+ * recovery would succeed. That takes a verified email AND {@link MIN_GUARDIAN_QUORUM} usable
+ * guardians — see {@link isRecoveryReady} — and "guardians can be added later" does not rescue an
+ * email-only account, because adding one needs a sign-in the owner no longer has.
+ *
+ * So an account one guardian short still reads as having a path here while `isRecoveryReady` says
+ * no, and that gap is deliberate: this answers "has this person started", which is a different
+ * prompt from "finish this". The screens that chase the second guardian read the count, not this.
  */
 export function hasRecoveryPath(params: {
   emailVerified: boolean;
@@ -126,11 +132,15 @@ export function hasRecoveryPath(params: {
 }
 
 /**
- * Whether a recovery started right now could finish: a verified backup email and at least one
- * guardian past their cooling period.
+ * Whether a recovery started right now could finish: a verified backup email and enough guardians
+ * past their cooling period to reach a quorum — {@link MIN_GUARDIAN_QUORUM} of them, not one.
  *
  * The same two conditions `app/api/recovery/start` checks before it sends anything, so a status
- * built on this cannot say "on" while the recovery screen says no.
+ * built on this cannot say "on" while the recovery screen says no. It used to ask for a single
+ * eligible guardian, which is the condition the quorum floor replaced: one guardian is a recovery
+ * path one person can open by themselves.
+ *
+ * Counted, not `.some()`, for that reason — the number is the whole point.
  */
 export function isRecoveryReady(params: {
   emailVerified: boolean;
@@ -138,7 +148,18 @@ export function isRecoveryReady(params: {
   nowMs?: number;
 }): boolean {
   const now = params.nowMs ?? Date.now();
-  return params.emailVerified && params.guardians.some((g) => isGuardianEligible(g, now));
+  return params.emailVerified && countEligibleGuardians(params.guardians, now) >= MIN_GUARDIAN_QUORUM;
+}
+
+/**
+ * How many of these guardians could vote on a recovery today.
+ *
+ * Exists so the quorum check, the settings screen and `app/api/recovery/start` all arrive at the
+ * same number from the same rule, rather than three `.filter(...).length` chains that can drift
+ * apart on what "eligible" means.
+ */
+export function countEligibleGuardians(guardians: GuardianRow[], nowMs: number = Date.now()): number {
+  return guardians.filter((g) => isGuardianEligible(g, nowMs)).length;
 }
 
 /**

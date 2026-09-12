@@ -18,8 +18,12 @@ import "./interfaces/IChainlinkAggregatorV3.sol";
 ///      and actually swapped on-chain, never burned/minted as an internal representation.
 ///      Trust boundary note (PRD Section 5.3): once a request is Settled, the swapped stable
 ///      tokens are handed to `owner()` for the off-chain fiat conversion/disbursement leg
-///      (mocked in the hackathon build). This contract is non-custodial up to that point, but
-///      the fiat conversion step is NOT trustless — that dependency is explicit, not hidden.
+///      (mocked in the hackathon build). What this contract guarantees a user is narrower than
+///      "non-custodial", and worth stating as what it is: a Locked request can be moved only by
+///      the `settler` role, only before `deadline`, and only by swapping into `stableToken`;
+///      once `deadline` passes, anyone can `refund` it to the original user. It is not
+///      trustless — `owner()` appoints the settler and sets `stableToken` and the token
+///      allowlist, and the fiat leg past the handoff is trusted in full.
 contract SakuOfframpEscrow is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 

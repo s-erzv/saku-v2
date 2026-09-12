@@ -40,7 +40,13 @@ export type AuthEventType =
   // A guardian's vote on a live recovery, as opposed to their answer to the invitation above.
   // Separated by channel because an off-app guardian was authorised by a link rather than a
   // session, and a run of link-authorised votes is the shape worth being able to search for.
-  | 'recovery_guardian_voted';
+  | 'recovery_guardian_voted'
+  // The scheduled sweep returned an expired off-ramp lock (`/api/offramp/sweep`). The one entry
+  // here that is not about reaching an account: it is recorded because it is the only event in
+  // this system where Saku moves a user's money with no user present, and "the operator acted on
+  // your funds by itself" is worth being able to list per account. The amounts and the transaction
+  // live with the money, in `transactions` and `offramp_requests`, not in this row.
+  | 'auto_refund_triggered';
 
 export interface AuthEvent {
   type: AuthEventType;

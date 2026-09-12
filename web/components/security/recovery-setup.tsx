@@ -32,6 +32,7 @@ import { useAuth, type RecoveryStatus } from "@/hooks/useAuth"
 import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 import countryCodes from "@/lib/country-codes.json"
 import { snooze } from "@/lib/recovery-snooze"
+import { MIN_GUARDIAN_QUORUM } from "@/lib/recovery"
 
 const SAKU_ORANGE = "#F0A353"
 
@@ -65,7 +66,8 @@ interface PickableContact {
 function stepsFor(recovery: RecoveryStatus): Step[] {
   const steps: Step[] = ["why"]
   if (!recovery.emailVerified) steps.push("email")
-  if (recovery.activeGuardians + recovery.pendingGuardians === 0) steps.push("guardians")
+  if (recovery.activeGuardians + recovery.pendingGuardians < MIN_GUARDIAN_QUORUM)
+    steps.push("guardians")
   steps.push("done")
   return steps
 }
@@ -243,7 +245,9 @@ export default function RecoverySetup() {
       : `${invitedNames.slice(0, -1).join(", ")} & ${invitedNames[invitedNames.length - 1]}`
 
   const emailInPlace = recovery.emailVerified || !!emailSentTo
-  const allInPlace = emailInPlace && guardianTotal > 0
+  // Counted against the quorum, not against one: a screen that congratulated someone on a single
+  // guardian would be promising a recovery that `isRecoveryReady` refuses.
+  const allInPlace = emailInPlace && guardianTotal >= MIN_GUARDIAN_QUORUM
 
   const primaryClass =
     "flex-1 h-[60px] rounded-2xl text-white hover:opacity-90 transition-all group flex items-center justify-between px-7 text-lg font-bold shadow-xl shadow-[#F0A353]/25 disabled:opacity-40 disabled:shadow-none"
@@ -325,7 +329,7 @@ export default function RecoverySetup() {
             <StepHeading
               accent={stepLabel("guardians")}
               title={"Who would vouch\nfor you?"}
-              body="Pick people who know you well. When you recover, more than half of them must confirm it is you — so with three, one can be unreachable."
+              body={`Pick at least ${MIN_GUARDIAN_QUORUM} people who know you well. When you recover, more than half of them must confirm it is you, and never fewer than ${MIN_GUARDIAN_QUORUM} — so with three, one can be unreachable.`}
             />
 
             <div className="flex items-center justify-between">
@@ -333,7 +337,11 @@ export default function RecoverySetup() {
                 Your guardians
               </p>
               <p className="text-xs font-bold tabular-nums" style={{ color: SAKU_ORANGE }}>
-                {guardianTotal} / {limit}
+                {/* The floor, not just the ceiling. `2 / 3` alone read as "one is fine, three is
+                    generous"; the target is what tells someone they are not finished yet. */}
+                {guardianTotal < MIN_GUARDIAN_QUORUM
+                  ? `${guardianTotal} / ${MIN_GUARDIAN_QUORUM} needed`
+                  : `${guardianTotal} / ${limit}`}
               </p>
             </div>
 
@@ -471,17 +479,25 @@ export default function RecoverySetup() {
                 />
               )}
 
-              {recovery.activeGuardians > 0 && invited.length === 0 ? (
+              {recovery.activeGuardians >= MIN_GUARDIAN_QUORUM && invited.length === 0 ? (
                 <SummaryRow
                   icon={Check}
                   done
-                  text={`${recovery.activeGuardians} active ${recovery.activeGuardians === 1 ? "guardian" : "guardians"}.`}
+                  text={`${recovery.activeGuardians} active guardians.`}
                 />
               ) : invited.length > 0 ? (
                 <SummaryRow
                   icon={Clock}
                   done={false}
                   text={`Waiting for ${namesText} to accept. Each can help 24 hours after they do.`}
+                />
+              ) : recovery.activeGuardians > 0 ? (
+                // Active, but short of the quorum. Not a tick: one guardian cannot recover this
+                // account, and a green check here is the one thing this screen must not say.
+                <SummaryRow
+                  icon={UserPlus}
+                  done={false}
+                  text={`${recovery.activeGuardians} active guardian. A recovery needs ${MIN_GUARDIAN_QUORUM}, so add one more.`}
                 />
               ) : guardianTotal > 0 ? (
                 <SummaryRow
@@ -493,7 +509,7 @@ export default function RecoverySetup() {
                 <SummaryRow
                   icon={UserPlus}
                   done={false}
-                  text="No guardians yet. A backup email alone cannot recover this account."
+                  text={`No guardians yet. A backup email alone cannot recover this account — it takes ${MIN_GUARDIAN_QUORUM} guardians.`}
                 />
               )}
             </ul>
@@ -515,7 +531,11 @@ export default function RecoverySetup() {
               disabled: busy || !emailConfigured || !emailDraft.includes("@"),
             }
       case "guardians":
-        return { label: guardianTotal > 0 ? "Next" : "Skip for now", onClick: () => go(1), disabled: busy }
+        return {
+          label: guardianTotal >= MIN_GUARDIAN_QUORUM ? "Next" : "Skip for now",
+          onClick: () => go(1),
+          disabled: busy,
+        }
       case "done":
         return { label: "Done", onClick: finish, disabled: false }
     }

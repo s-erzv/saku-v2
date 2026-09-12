@@ -10,6 +10,8 @@ import {
   recoveryExpiresAt,
   recoveryFinishExpiresAt,
   recoveryStage,
+  canFormGuardianQuorum,
+  MIN_GUARDIAN_QUORUM,
   requiredGuardianApprovals,
   type RecoveryRequestRow,
 } from '@/lib/recovery';
@@ -54,24 +56,56 @@ describe('finish window', () => {
 });
 
 describe('requiredGuardianApprovals', () => {
-  it('needs every guardian up to two, and two of three', () => {
-    assert.equal(requiredGuardianApprovals(1), 1);
+  it('never lets one guardian decide, whatever the panel', () => {
+    // The whole point of the floor. A strict majority alone answered 1 here, which made a
+    // one-guardian account a one-person recovery path.
+    assert.equal(requiredGuardianApprovals(1), 2);
     assert.equal(requiredGuardianApprovals(2), 2);
     assert.equal(requiredGuardianApprovals(3), 2);
   });
 
-  it('is always a strict majority, never more than the panel', () => {
+  it('is never below the quorum floor', () => {
+    for (let panel = 0; panel <= 10; panel++) {
+      assert.ok(
+        requiredGuardianApprovals(panel) >= MIN_GUARDIAN_QUORUM,
+        `a panel of ${panel} could be decided by fewer than ${MIN_GUARDIAN_QUORUM}`
+      );
+    }
+  });
+
+  it('is always a strict majority, and never more than a panel that can form', () => {
     // The two failures this sits between: a minority deciding, and a demand nobody can meet.
+    // "Can form" is the qualifier the floor adds — a panel of one is refused outright rather than
+    // handed a bar it could clear.
     for (let panel = 1; panel <= 10; panel++) {
       const required = requiredGuardianApprovals(panel);
       assert.ok(required * 2 > panel, `a minority decided for a panel of ${panel}`);
-      assert.ok(required <= panel, `more approvals than guardians for a panel of ${panel}`);
+      if (canFormGuardianQuorum(panel)) {
+        assert.ok(required <= panel, `more approvals than guardians for a panel of ${panel}`);
+      }
     }
   });
 
   it('leaves room for one unreachable guardian from three up', () => {
     for (let panel = 3; panel <= 10; panel++) {
       assert.ok(requiredGuardianApprovals(panel) < panel);
+    }
+  });
+});
+
+describe('canFormGuardianQuorum', () => {
+  it('refuses a panel that could never reach its own bar', () => {
+    assert.equal(canFormGuardianQuorum(0), false);
+    // One guardian: the case this change exists for. `requiredGuardianApprovals` honestly says 2,
+    // and nothing may lower it to fit — so the panel is refused instead.
+    assert.equal(canFormGuardianQuorum(1), false);
+    assert.ok(requiredGuardianApprovals(1) > 1);
+  });
+
+  it('accepts every panel that can', () => {
+    for (let panel = MIN_GUARDIAN_QUORUM; panel <= 10; panel++) {
+      assert.equal(canFormGuardianQuorum(panel), true);
+      assert.ok(requiredGuardianApprovals(panel) <= panel);
     }
   });
 });

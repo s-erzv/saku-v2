@@ -33,6 +33,7 @@ import Link from "next/link"
 import { ChevronRight, Clock, ShieldAlert, ShieldCheck } from "lucide-react"
 
 import { useAuth } from "@/hooks/useAuth"
+import { MIN_GUARDIAN_QUORUM } from "@/lib/recovery"
 import SettingsRow from "@/components/profile/settings-row"
 
 function hoursLeft(ms: number): string {
@@ -47,6 +48,9 @@ function useRecoveryState() {
   const waiting = !recovery.ready && recovery.emailVerified && recovery.guardianReadyInMs !== null
   const needsAction = !recovery.ready && !waiting
   const guardianCount = `${recovery.activeGuardians} guardian${recovery.activeGuardians === 1 ? "" : "s"}`
+  // Short of the quorum with nobody else on the way: the one case where the account has a
+  // guardian and still cannot be recovered, so "add a guardian" would read as a mistake.
+  const oneShort = !recovery.ready && recovery.emailVerified && recovery.activeGuardians > 0
 
   const summary = recovery.ready
     ? `On. Backup email and ${guardianCount}.`
@@ -56,7 +60,9 @@ function useRecoveryState() {
         ? "Off. Losing your phone number would lose this account."
         : !recovery.emailVerified
           ? "Not ready. Add a backup email — every recovery starts there."
-          : "Not ready. Add a guardian — a backup email alone can't recover this account."
+          : oneShort
+            ? `Not ready. A recovery needs ${MIN_GUARDIAN_QUORUM} guardians to agree — add one more.`
+            : `Not ready. Add ${MIN_GUARDIAN_QUORUM} guardians — a backup email alone can't recover this account.`
 
   return {
     isAuthenticated,

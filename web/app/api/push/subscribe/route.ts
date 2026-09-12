@@ -43,7 +43,13 @@ export async function POST(request: Request) {
     if (error) {
       // The table only exists after the migration runs. Say so plainly rather than 500-ing on a
       // toggle whose whole job is to report whether it worked.
-      if (error.code === 'PGRST205' || error.code === '42P01') {
+      //
+      // 42501 belongs here too, and it is the one that actually happened: the table existed but
+      // `service_role` had no privileges on it, so every subscribe threw and the toggle reported
+      // "Could not turn on notifications" — a message that sends you looking at VAPID keys and the
+      // service worker rather than at a missing GRANT. A table nobody may write to is not set up.
+      if (error.code === 'PGRST205' || error.code === '42P01' || error.code === '42501') {
+        console.error('[push/subscribe] push_subscriptions unusable:', error.code, error.message);
         return NextResponse.json({ error: 'Push notifications are not set up yet' }, { status: 503 });
       }
       throw error;

@@ -1,7 +1,7 @@
 /**
  * Gas sponsorship.
  *
- * A non-custodial wallet signs its own transactions, which means it needs its own gas — and the
+ * A wallet signs its own transactions, which means it needs its own gas — and the
  * user this app is designed for (PRD Section 3, "Rani") has never heard of tBNB. Saku funds a
  * new wallet with just enough to transact, from the settler.
  *

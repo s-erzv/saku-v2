@@ -19,7 +19,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createEmailToken, decryptEmail } from '@/lib/email';
 import { sendEmail } from '@/lib/mailer';
-import { recoveryFinishExpiresAt } from '@/lib/recovery';
+import { MIN_GUARDIAN_QUORUM, recoveryFinishExpiresAt } from '@/lib/recovery';
 
 export type VoteOutcome =
   | { kind: 'rejected' }
@@ -34,6 +34,10 @@ interface VoteParams {
   ownerId: string;
   /** What the request's clock was before a majority replaced it, for the undo below. */
   previousExpiresAt: string;
+  /**
+   * The bar fixed on the request when its panel was seated. Raised to {@link MIN_GUARDIAN_QUORUM}
+   * here if it is somehow lower — see below.
+   */
   requiredApprovals: number;
   accept: boolean;
   appOrigin: string;
@@ -43,7 +47,13 @@ export async function castGuardianVote(
   supabase: SupabaseClient,
   params: VoteParams
 ): Promise<VoteOutcome> {
-  const { recoveryId, guardianId, ownerId, previousExpiresAt, requiredApprovals, accept } = params;
+  const { recoveryId, guardianId, ownerId, previousExpiresAt, accept } = params;
+
+  // The stored bar, never below the floor. `required_approvals` is a number written to the row when
+  // the panel was seated, so a request seated before the floor existed carries the old answer — and
+  // for a panel of one, that old answer is "one vote decides". Clamping here rather than in each
+  // caller means neither approve route can be the one that forgot.
+  const requiredApprovals = Math.max(params.requiredApprovals, MIN_GUARDIAN_QUORUM);
 
   const now = new Date();
   const nowIso = now.toISOString();

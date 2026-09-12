@@ -9,9 +9,11 @@
  * The order, and what each step proves:
  *
  *  1. The backup email answered a link. That is the claim "this account is mine".
- *  2. A majority of the guardians said yes. Email accounts get compromised, and one more thing
- *     the attacker already has is not a second factor. People who know the owner are different
- *     evidence — and a majority of them, so fooling the most trusting one is not enough.
+ *  2. A majority of the guardians said yes, and never fewer than two of them. Email accounts get
+ *     compromised, and one more thing the attacker already has is not a second factor. People who
+ *     know the owner are different evidence — and a majority of them, so fooling the most trusting
+ *     one is not enough. See {@link MIN_GUARDIAN_QUORUM} for why a majority alone did not deliver
+ *     that.
  *  3. Only then does the requester choose the new number, and that number answers an OTP.
  *     Otherwise a recovery could point an account at a number the requester does not control,
  *     which is a takeover with extra steps.
@@ -23,9 +25,10 @@
  * who can reach that step — only the holder of a link mailed to the backup address after the
  * guardians said yes, and only for {@link RECOVERY_FINISH_WINDOW_MS}.
  *
- * Note what is deliberately NOT enough on its own: a verified email. An account with an email
- * and no guardian cannot complete a recovery. That is a real cost, stated plainly on the
- * settings screen, and the alternative is that taking someone's email takes their money.
+ * Note what is deliberately NOT enough on its own: a verified email. An account with an email and
+ * fewer than two usable guardians cannot complete a recovery. That is a real cost, stated plainly
+ * on the settings screen, and the alternative is that taking someone's email — plus one person
+ * who trusts them — takes their money.
  */
 
 export const RECOVERY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -62,7 +65,29 @@ export function recoveryFinishExpiresAt(nowMs: number = Date.now()): Date {
 }
 
 /**
- * How many guardians must approve: a strict majority of the panel.
+ * The fewest guardians that can ever decide a recovery, whatever the panel's size.
+ *
+ * A strict majority alone does not bound this: the majority of one is one. So an account with a
+ * single guardian had a one-person recovery path, and that one person is the whole of the second
+ * factor — an attacker who has the backup email and talks the only guardian into tapping approve
+ * is done. "Fooling the most trusting guardian is not enough" is only true when there is more
+ * than one to be trusting.
+ *
+ * Two, not three. Three would mean the maximum panel ({@link MAX_GUARDIANS}) has no slack at all:
+ * one guardian who changed phones and the owner is locked out for good, and an unrecoverable
+ * account is the failure this whole flow exists to prevent. Two keeps a second pair of eyes on
+ * every recovery while a panel of three still tolerates one person being unreachable.
+ *
+ * The cost is stated plainly rather than hidden: an account with one guardian cannot be
+ * recovered. It is refused at {@link canFormGuardianQuorum} — before any email is sent, so the
+ * owner is told while they still have the account and can add a second guardian, not after a wait
+ * that could never end.
+ */
+export const MIN_GUARDIAN_QUORUM = 2;
+
+/**
+ * How many guardians must approve: a strict majority of the panel, never fewer than
+ * {@link MIN_GUARDIAN_QUORUM}.
  *
  * One approval used to be enough, which made every guardian added a liability — an attacker only
  * had to fool the most trusting of them. Requiring all of them fails the other way: one guardian
@@ -70,10 +95,22 @@ export function recoveryFinishExpiresAt(nowMs: number = Date.now()): Date {
  * majority sits between. A minority can never decide, and from three guardians up, one can be
  * unreachable.
  *
- * 1 → 1, 2 → 2, 3 → 2.
+ * 1 → 2 (unreachable by design — see {@link canFormGuardianQuorum}), 2 → 2, 3 → 2.
  */
 export function requiredGuardianApprovals(panelSize: number): number {
-  return Math.floor(panelSize / 2) + 1;
+  return Math.max(MIN_GUARDIAN_QUORUM, Math.floor(panelSize / 2) + 1);
+}
+
+/**
+ * Whether a panel this size can ever reach its own bar.
+ *
+ * Deliberately a separate question from {@link requiredGuardianApprovals}, which answers honestly
+ * that a panel of one needs two. Nothing may quietly lower the bar to fit a short panel; the
+ * panel is refused instead, and this is the function that refuses it. Every gate that decides
+ * whether a recovery may begin asks this rather than comparing numbers itself.
+ */
+export function canFormGuardianQuorum(panelSize: number): boolean {
+  return panelSize >= MIN_GUARDIAN_QUORUM;
 }
 
 export type RecoveryStatus = 'pending' | 'approved' | 'rejected' | 'expired';

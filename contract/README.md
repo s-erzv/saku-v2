@@ -1,8 +1,14 @@
 # Saku v2 — Smart Contracts (BNB Smart Chain)
 
-On-chain layer for **Saku v2**, an interoperable non-custodial wallet with Social Identity
+On-chain layer for **Saku v2**, an interoperable phone-number wallet with Social Identity
 Abstraction, built on **BNB Smart Chain (BSC Testnet)**. See `PRD_Saku_v2` for the full product
 spec — this repo implements PRD Section 5 ("Backend Logic Flow").
+
+> **Custody.** Saku is not a non-custodial wallet. User keys are held by a signing provider and
+> the authority to use them lives on Saku's server, bounded by a transaction policy, a daily cap
+> and an audit trail rather than by anything a user holds. The escrow below is the one place where
+> on-chain rules do that work instead. Both are written out in
+> [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 > The v1-era wallet contracts (`SakuRegistry`, `USDCStaking`, `LockD`) have been removed — v2
 > is scoped to the offramp escrow flow below. The web app's hooks/config that referenced them
@@ -39,8 +45,11 @@ representation.
 
 **Trust boundary, stated explicitly (PRD Section 5.3):** once a request is `Settled`, the stable
 tokens go to `owner()` for the (simulated, in the hackathon build) fiat conversion and
-disbursement legs. The escrow itself is non-custodial, but that handoff is not "fully
-trustless" — this is a known, documented limitation, not a hidden one.
+disbursement legs. What the escrow guarantees is narrower than "non-custodial": a `Locked` request
+can be moved only by the `settler` role, only before `deadline`, and only by swapping into
+`stableToken` — and once `deadline` passes, anyone can `refund` it to the user. It is not
+trustless either: `owner()` appoints the settler and sets `stableToken` and the token allowlist,
+and the fiat leg past the handoff is trusted in full. Known and documented, not hidden.
 
 ## Deployed — BSC Testnet (chain ID 97)
 

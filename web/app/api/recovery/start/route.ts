@@ -29,13 +29,15 @@ import { findUserByPhone } from '@/lib/phone-identity';
 import { createEmailToken, decryptEmail, maskEmail } from '@/lib/email';
 import { EmailNotConfiguredError, sendEmail } from '@/lib/mailer';
 import {
-  isGuardianEligible,
+  countEligibleGuardians,
   isGuardianReachable,
   nextGuardianActiveAt,
   type GuardianRow,
 } from '@/lib/guardians';
 import {
+  canFormGuardianQuorum,
   canReplaceOpenRecovery,
+  MIN_GUARDIAN_QUORUM,
   recoveryExpiresAt,
   recoveryStage,
   type RecoveryRequestRow,
@@ -46,9 +48,29 @@ import { appOrigin } from '@/lib/app-url';
 
 const NOT_RECOVERABLE = {
   error:
-    'This number cannot be recovered. Recovery only works if the account had a backup email and an active guardian before the number was lost.',
+    'This number cannot be recovered. Recovery only works if the account had a backup email and at ' +
+    `least ${MIN_GUARDIAN_QUORUM} active guardians before the number was lost.`,
   code: 'NOT_RECOVERABLE',
 };
+
+/**
+ * Why this account cannot raise a quorum, in a sentence the owner can act on.
+ *
+ * Three different situations, and telling them apart is the whole value: nothing set up, a
+ * guardian still inside the cooling wait, and a panel one person short. The last is the one the
+ * quorum floor introduced, and it is the one an owner is most likely to be surprised by.
+ */
+function quorumRefusal(active: number, activeFrom: Date | null): string {
+  if (active === 0) {
+    return activeFrom
+      ? 'This account has a backup email, but its guardians are still inside the 24-hour safety wait.'
+      : 'This account has a backup email but no guardian, and a backup email alone cannot recover an account.';
+  }
+  const short = `A recovery needs ${MIN_GUARDIAN_QUORUM} guardians to agree, and this account has ${active}.`;
+  return activeFrom
+    ? `${short} Another one accepted recently and is still inside the 24-hour safety wait.`
+    : `${short} Guardians can only be added from an account you can still sign in to.`;
+}
 
 export async function POST(request: Request) {
   // Tighter than the general per-IP limit: each request can put an email in someone's inbox, and
@@ -129,9 +151,9 @@ export async function POST(request: Request) {
       });
     }
 
-    // An email on its own cannot finish a recovery (see `lib/recovery.ts`), so an account with no
-    // usable guardian is told now. Starting anyway would send a link that leads to "there is no
-    // guardian to ask", which is a wait for nothing.
+    // An email on its own cannot finish a recovery (see `lib/recovery.ts`), so an account that
+    // cannot raise a quorum is told now. Starting anyway would send a link that leads to a panel
+    // which can never reach its own bar, which is a wait for nothing.
     const { data: guardianRows, error: guardianError } = await supabase
       .from('guardians')
       .select('id, guardian_user_id, invite_phone_ciphertext, status, approved_at, effective_at')
@@ -141,20 +163,26 @@ export async function POST(request: Request) {
     if (guardianError) throw guardianError;
 
     const reachable = (guardianRows ?? []).filter(isGuardianReachable) as GuardianRow[];
+    const active = countEligibleGuardians(reachable);
 
-    if (!reachable.some((g) => isGuardianEligible(g))) {
+    if (!canFormGuardianQuorum(active)) {
       // Said specifically rather than folded into NOT_RECOVERABLE. The generic sentence read as
       // "you have no backup email" to an owner whose email was confirmed and whose guardian was
       // only still inside the 24-hour wait. It does reveal that this number has an account with a
       // backup email — no more than the masked address in the success reply already does.
+      //
+      // The one-guardian case gets its own sentence for the same reason. "No guardian" is wrong
+      // and would send an owner looking for a guardian they can see is there; what they need to
+      // know is that a recovery now takes two of them, and that nothing they can do from a lost
+      // number will change that.
       const activeFrom = nextGuardianActiveAt(reachable);
       return NextResponse.json(
         {
-          error: activeFrom
-            ? 'This account has a backup email, but its guardian is still inside the 24-hour safety wait.'
-            : 'This account has a backup email but no guardian, and a backup email alone cannot recover an account.',
+          error: quorumRefusal(active, activeFrom),
           code: 'NO_ACTIVE_GUARDIAN',
           activeFrom: activeFrom?.toISOString() ?? null,
+          active,
+          required: MIN_GUARDIAN_QUORUM,
         },
         { status: 422 }
       );

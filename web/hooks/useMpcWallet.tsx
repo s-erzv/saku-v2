@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Wallet backed by server-side key management (see docs/mpc-setup.md).
+ * Wallet backed by server-side key management (trust model: `ARCHITECTURE.md` at the repo root).
  *
  * This replaced the Web3Auth MPC integration after its `sapphire_devnet` signing infrastructure
  * proved unreliable under real testing: transactions would hang indefinitely with no error,

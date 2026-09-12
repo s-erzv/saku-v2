@@ -11,8 +11,8 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getSession, unauthorized } from '@/lib/session';
 import { isSimulatedPayout, payoutProvider } from '@/lib/offramp-payout';
-import { CHAIN_ID } from '@/lib/chain';
 import { refundOfframp } from '@/lib/escrow';
+import { decideFromChain, readChainRequest, reconcileStatus, recordRefund } from '@/lib/offramp-sweep';
 
 /**
  * The columns this route reads back.
@@ -113,30 +113,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ req
       );
     }
 
+    // Ask the escrow before spending gas on a transaction that may be certain to revert. The
+    // scheduled sweep (`/api/offramp/sweep`) can reach the same request first, and `refund` on a
+    // request the escrow has already moved on from reverts — a correct outcome, but one that would
+    // surface here as a 500 carrying a contract error string. The decision is shared with the sweep
+    // (`lib/offramp-sweep.ts`) precisely so the two callers cannot disagree about what is eligible.
+    const chain = await readChainRequest(requestId.toLowerCase());
+    const decision = decideFromChain(chain.status, chain.deadlineMs, Date.now());
+
+    if (decision.action === 'reconcile') {
+      await reconcileStatus(requestId.toLowerCase(), decision.status);
+      return NextResponse.json(
+        {
+          error: `Nothing to refund — the escrow reports this as ${decision.status}`,
+          status: decision.status,
+        },
+        { status: 409 }
+      );
+    }
+
+    if (decision.action === 'skip') {
+      return NextResponse.json(
+        { error: decision.reason, refundableAfter: row.rate_expires_at },
+        { status: 409 }
+      );
+    }
+
     const receipt = await refundOfframp(requestId.toLowerCase());
-    const supabase = getSupabaseAdmin();
 
-    await supabase
-      .from('offramp_requests')
-      .update({
-        status: 'refunded',
-        refund_tx_hash: receipt.hash.toLowerCase(),
-        fiat_status: 'not_started',
-      })
-      .eq('request_id', requestId.toLowerCase());
+    // `user_id` is not in this route's `SELECT`, but `loadOwned` already filtered the row to this
+    // session, so the owner is the caller. `recorded` is false when the sweep claimed the row in
+    // the same moment and wrote the history entry — the money is back either way, and a second
+    // entry would show the user one refund twice.
+    const recorded = await recordRefund({ ...row, user_id: session.userId }, receipt, 'manual');
 
-    await supabase.from('transactions').insert({
-      tx_hash: receipt.hash.toLowerCase(),
-      chain_id: CHAIN_ID,
-      type: 'offramp_refund',
-      status: 'confirmed',
-      amount: String(row.amount),
-      user_id: session.userId,
-      block_number: receipt.blockNumber,
-      offramp_request_id: row.id,
-    });
-
-    return NextResponse.json({ success: true, status: 'refunded', refundTxHash: receipt.hash });
+    return NextResponse.json({ success: true, status: 'refunded', refundTxHash: receipt.hash, recorded });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Refund failed';
     return NextResponse.json({ error: message }, { status: 500 });

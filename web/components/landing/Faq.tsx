@@ -85,7 +85,7 @@ export default function FAQSection() {
         },
         {
         q: "Is Saku a custodial or non-custodial wallet?",
-        a: "Saku is designed to abstract technical complexity while prioritizing user security. Wallet management and transaction execution are handled securely without exposing private keys to users.",
+        a: "Custodial, and we would rather say so plainly. Your private key is created and held inside the signing provider's enclave — it never exists in the Saku app, in your browser, or in our database, and it cannot be extracted from the provider. What is custodial is the authority to use it: that sits on Saku's server, so Saku can sign for your wallet. What bounds it is that the server will only sign a short list of transactions (sending USDC, approving the escrow or the staking pool, locking an off-ramp, staking), never native BNB, under a rolling 24-hour spending cap, and every decision — signed, refused or failed — is recorded.",
         },
         {
         q: "Is my data and transaction information secure?",
