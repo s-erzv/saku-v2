@@ -18,13 +18,15 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { parseUnits } from "ethers"
-import { ArrowLeft, CheckCircle, ExternalLink, Loader2, Receipt, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { CheckCircle, ExternalLink, Loader2, Receipt, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTopup } from "@/hooks/useTopup"
 import { type SakuTransaction } from "@/hooks/useTransactions"
 import { CONTRACTS, explorerTxUrl } from "@/lib/config"
 import ReceiptModal from "@/components/transactions/receipt-modal"
+import ScreenHeader from "@/components/ui/screen-header"
+import { useScreenNav } from "@/components/web/shell"
 
 const QUICK_AMOUNTS = [5, 10, 25, 50]
 
@@ -57,6 +59,7 @@ const RATE_REFRESH_MS = 60_000
 
 export default function TopupPage() {
   const router = useRouter()
+  const { exit } = useScreenNav()
   const { user, wallet, isLoading, isAuthenticated, refreshUser } = useAuth()
   const { address } = useMpcWallet()
   const { phase, payoutTxHash, error, startTopup, reset } = useTopup()
@@ -179,7 +182,7 @@ export default function TopupPage() {
               href={explorerTxUrl(payoutTxHash)}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-700 hover:underline"
+              className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-gilt-deep hover:underline"
             >
               View on BscScan <ExternalLink className="w-3 h-3" />
             </a>
@@ -195,7 +198,7 @@ export default function TopupPage() {
               </button>
             )}
             <button
-              onClick={() => router.push("/home")}
+              onClick={exit}
               className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
             >
               Back to Home
@@ -211,16 +214,7 @@ export default function TopupPage() {
   return (
     <div className="min-h-dvh bg-white font-sans">
       <div className="max-w-lg mx-auto px-5 py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/home")}
-            aria-label="Back"
-            className="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-black tracking-tight">Top Up</h1>
-        </div>
+        <ScreenHeader title="Top Up" />
 
         {!walletAddress ? (
           <div className="p-5 rounded-3xl bg-amber-50 border border-amber-200 flex items-start gap-3">
@@ -236,7 +230,7 @@ export default function TopupPage() {
           <>
             <div className="space-y-4">
               <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-6 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+                <p className="text-[12px] font-medium text-black/35">
                   Amount to receive
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-2">

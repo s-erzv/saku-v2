@@ -20,9 +20,11 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowRight, ShieldAlert, UserPlus } from "lucide-react"
+import { ArrowRight } from "lucide-react"
+import { ShieldWarning, UserPlus } from "@phosphor-icons/react"
 
 import { useAuth } from "@/hooks/useAuth"
+import IconTile from "@/components/ui/icon-tile"
 
 interface WaitingItem {
   id: string
@@ -68,10 +70,10 @@ export default function GuardianRequests() {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans space-y-3">
       <div className="px-1">
-        <p className="text-[11px] font-bold text-amber-600">
+        <p className="text-[12px] font-medium text-gilt-deep">
           Needs your answer
         </p>
-        <h2 className="text-lg font-black tracking-tight">
+        <h2 className="text-lg font-semibold tracking-tight">
           {recoveries.length > 0
             ? `${recoveries.length} ${recoveries.length === 1 ? "person needs" : "people need"} you as a guardian`
             : `${invitations.length} guardian ${invitations.length === 1 ? "invitation" : "invitations"}`}
@@ -86,23 +88,24 @@ export default function GuardianRequests() {
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.06 }}
-            className={`group w-full rounded-3xl backdrop-blur-xl border p-3.5 text-left ${
+            className={`group w-full rounded-3xl border p-3.5 text-left transition-colors ${
               item.kind === "recovery"
-                ? "bg-amber-50/80 border-amber-200 shadow-[0_10px_30px_rgba(217,119,6,0.12)]"
-                : "bg-white/60 border-white/70 shadow-[0_10px_30px_rgba(217,119,6,0.06)]"
+                ? "bg-amber-50/70 border-amber-200 hover:border-amber-300"
+                : "bg-white border-black/[0.06] hover:border-black/15"
             }`}
           >
             <div className="flex items-center gap-3">
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:rotate-6 ${
-                  item.kind === "recovery" ? "bg-amber-200/70 text-amber-700" : "bg-amber-100 text-amber-600"
-                }`}
-              >
-                {item.kind === "recovery" ? <ShieldAlert className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
-              </div>
+              {/* The recovery request keeps its amber: of everything here, it is the warning. */}
+              {item.kind === "recovery" ? (
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-amber-200/70 text-amber-800">
+                  <ShieldWarning size={22} weight="duotone" />
+                </div>
+              ) : (
+                <IconTile icon={UserPlus} box="w-12 h-12 rounded-2xl" />
+              )}
 
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-black tracking-tight truncate">
+                <p className="text-sm font-semibold tracking-tight truncate">
                   {item.kind === "recovery"
                     ? `${item.requestedBy} is recovering their account`
                     : `${item.requestedBy} wants you as a guardian`}
@@ -116,7 +119,7 @@ export default function GuardianRequests() {
                 </p>
               </div>
 
-              <span className="shrink-0 flex items-center gap-1 px-3.5 py-2 rounded-xl bg-black text-white text-[11px] font-bold group-hover:bg-amber-600 transition-colors">
+              <span className="shrink-0 flex items-center gap-1 px-3.5 py-2 rounded-xl bg-black text-white text-[11px] font-medium group-hover:bg-black/80 transition-colors">
                 Review
                 <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </span>

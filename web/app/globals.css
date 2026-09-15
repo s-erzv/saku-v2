@@ -55,6 +55,30 @@
   --color-saku-orange: #F0A353;
   --color-saku-yellow: #FFD362;
 
+  /* Ink and gilt — the balance card's black and gold, as the palette for everything around it.
+     `--color-black` is redefined rather than a new name introduced, so every `bg-black`,
+     `text-black/45` and `border-black/10` already in the app turns from flat #000 to the same warm
+     ink in one place instead of hundreds. */
+  --color-black: #14120E;
+  --color-ink: #14120E;
+  --color-canvas: #F4F3F0;
+  --color-gilt: #DDBA7C;
+  --color-gilt-deep: #87652F;
+  --color-positive: #237A55;
+  --color-negative: #B0452F;
+
+  /* One weight scale for every screen, taken from the web wallet: 400 to read, 500 to label and
+     act, 550 for headings and figures, nothing heavier. The screens were written with
+     `font-bold` and `font-black` everywhere, which on Geist reads as shouting; remapping the
+     tokens lightens every one of them at once, including screens nobody restyled by hand.
+     Geist loads as a variable font (see `app/layout.tsx`), so 550 renders as 550.
+     ponytail: remapped tokens, not renamed classes — `font-bold` renders 500 and `font-black`
+     550. Where a genuinely heavy weight is ever wanted, write `font-[700]` in that one place. */
+  --font-weight-semibold: 550;
+  --font-weight-bold: 500;
+  --font-weight-extrabold: 550;
+  --font-weight-black: 550;
+
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -85,6 +109,12 @@
   }
   body {
     @apply bg-background text-foreground transition-colors duration-300;
+  }
+  /* Lucide ships a 2px stroke, which is what made the utility glyphs read as clip-art next to the
+     type. CSS beats the SVG's own attribute, so this thins every one of them, and a utility class
+     can still override it where a heavier mark is wanted. */
+  .lucide {
+    stroke-width: 1.75;
   }
 }
 
@@ -337,4 +367,38 @@
   .animate-saku-bob      { animation: none; }
   .animate-saku-ring     { animation: none; opacity: 0; }
   .animate-saku-confetti { animation: none; opacity: 0; }
+}
+
+/* Web wallet frame (components/web/web-frame.tsx).
+
+   The screens were built as a phone column with `min-h-dvh` roots. Inside the web frame — a page
+   sheet or the tool panel — a full viewport of height is wrong, so it is released there and only
+   there. Unlayered on purpose: it has to beat the utilities layer without `!important`. */
+[data-web-surface] .min-h-dvh,
+[data-web-surface] .min-h-screen {
+  min-height: 0;
+}
+
+/* A screen with no web layout of its own sits on the canvas as one sheet. */
+[data-web-sheet] > * {
+  max-width: 36rem;
+  margin-inline: auto;
+  background: #fff;
+  border: 1px solid rgb(20 18 14 / 0.07);
+  border-radius: 28px;
+}
+
+/* Opacity only. A transform on the panel would make it the containing block for every
+   `position: fixed` inside it — the receipt, the country picker — and pin them to the panel
+   instead of the viewport. */
+@keyframes web-panel-in {
+  from { opacity: 0; }
+}
+
+.animate-web-panel-in {
+  animation: web-panel-in 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-web-panel-in { animation: none; }
 }

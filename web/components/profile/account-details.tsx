@@ -101,7 +101,7 @@ export default function AccountDetails() {
     <SettingsGroup title="Account">
       {isEditing ? (
         <div className="flex items-center gap-2 px-3 py-2.5">
-          <span className="shrink-0 rounded-xl bg-amber-50 p-2 text-amber-600">
+          <span className="shrink-0 rounded-xl bg-[#F1EFEA] p-2 text-ink/75">
             <User className="w-[18px] h-[18px]" />
           </span>
           <input
@@ -115,7 +115,7 @@ export default function AccountDetails() {
             }}
             placeholder="Your name"
             aria-label="Your name"
-            className="min-w-0 flex-1 rounded-xl border border-amber-500/60 bg-amber-500/5 px-3 py-2 text-sm font-semibold outline-none"
+            className="min-w-0 flex-1 rounded-xl border border-black/20 bg-black/[0.02] px-3 py-2 text-sm font-semibold outline-none"
           />
           <button
             onClick={() => setIsEditing(false)}
@@ -128,7 +128,7 @@ export default function AccountDetails() {
             onClick={saveName}
             disabled={isUpdating}
             aria-label="Save name"
-            className="shrink-0 rounded-xl bg-amber-500 p-2 text-black disabled:opacity-50"
+            className="shrink-0 rounded-xl bg-black p-2 text-white disabled:opacity-50"
           >
             {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
           </button>
@@ -136,7 +136,6 @@ export default function AccountDetails() {
       ) : (
         <SettingsRow
           icon={User}
-          iconClassName="bg-amber-50 text-amber-600"
           label="Name"
           value={displayName}
           onClick={() => {
@@ -154,7 +153,6 @@ export default function AccountDetails() {
           existed gets the line this row showed everyone before. */}
       <SettingsRow
         icon={Smartphone}
-        iconClassName="bg-emerald-50 text-emerald-600"
         label="Phone"
         description={
           ownNumber
@@ -168,7 +166,6 @@ export default function AccountDetails() {
 
       <SettingsRow
         icon={Wallet}
-        iconClassName="bg-blue-50 text-blue-600"
         label="Saku ID"
         value={
           walletAddress ? (

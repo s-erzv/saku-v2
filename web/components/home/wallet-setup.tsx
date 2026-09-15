@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { KeyRound, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
+import { Key } from "@phosphor-icons/react"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
+import IconTile from "@/components/ui/icon-tile"
 
 /**
  * Wallet bring-up on the home screen — and deliberately nothing else.
@@ -62,20 +64,20 @@ export default function WalletSetup() {
 
   if (status !== "connected") {
     return (
-      <div className="rounded-3xl bg-white border border-slate-200 p-5 shadow-sm">
+      <div className="rounded-3xl bg-white border border-black/[0.07] p-5">
         <div className="flex items-start gap-3">
-          <div className="rounded-2xl bg-amber-50 p-2.5">
-            {busy ? (
-              <Loader2 className="w-5 h-5 text-amber-600 animate-spin" />
-            ) : (
-              <KeyRound className="w-5 h-5 text-amber-600" />
-            )}
-          </div>
+          {busy ? (
+            <span className="w-11 h-11 shrink-0 rounded-[13px] bg-[#F1EFEA] flex items-center justify-center">
+              <Loader2 className="w-5 h-5 text-gilt-deep animate-spin" />
+            </span>
+          ) : (
+            <IconTile icon={Key} />
+          )}
           <div className="min-w-0">
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">
+            <h2 className="text-base font-bold text-ink tracking-tight">
               {busy ? "Setting up your wallet…" : "Wallet"}
             </h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-black/55">
               {busy
                 ? "Just a moment — this happens once."
                 : "Verifying your number opens your wallet — nothing to write down, nothing to lose."}
@@ -89,7 +91,7 @@ export default function WalletSetup() {
             <button
               disabled={busy || !isAuthenticated}
               onClick={() => run(async () => { await login(); await refreshUser() })}
-              className="mt-3 w-full rounded-2xl bg-slate-900 py-3 text-sm font-bold text-white disabled:opacity-40 active:scale-[0.99] transition-transform"
+              className="mt-3 w-full rounded-2xl bg-black py-3 text-sm font-bold text-white disabled:opacity-40 active:scale-[0.99] transition-transform"
             >
               Try again
             </button>

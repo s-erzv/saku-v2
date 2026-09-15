@@ -94,22 +94,22 @@ function Row({ notification }: { notification: SakuNotification }) {
   const href = hrefFor(notification)
   // Picked and rendered in one expression. Assigning the icon to a capitalised variable and using
   // it as `<Icon />` reads to the React compiler as a component created during render.
-  const icon = createElement(iconFor(notification), { className: "w-5 h-5 text-black/60" })
+  const icon = createElement(iconFor(notification), { className: "w-5 h-5 text-ink/70" })
 
   const body = (
     <>
-      <div className="w-10 h-10 rounded-2xl bg-black/5 flex items-center justify-center shrink-0">
+      <div className="w-10 h-10 rounded-2xl bg-[#F1EFEA] flex items-center justify-center shrink-0">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-black/80">{notification.message}</p>
         <p className="text-[11px] text-black/40 mt-0.5">{timeAgo(notification.created_at)}</p>
       </div>
-      {!notification.is_read && <div className="w-2 h-2 rounded-full bg-orange-500 mt-2 shrink-0" />}
+      {!notification.is_read && <div className="w-2 h-2 rounded-full bg-gilt mt-2 shrink-0" />}
     </>
   )
 
-  const shell = `flex items-start gap-3 p-3 rounded-2xl ${notification.is_read ? "" : "bg-orange-50/60"}`
+  const shell = `flex items-start gap-3 p-3 rounded-2xl ${notification.is_read ? "" : "bg-[#FAF6EE]"}`
 
   // A row that leads somewhere is a link and looks like one; a row that does not stays inert
   // rather than offering a tap that does nothing.

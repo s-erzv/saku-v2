@@ -11,13 +11,17 @@
 
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Loader2, Receipt } from "lucide-react"
+import { ArrowDownLeft, ArrowUpRight } from "@phosphor-icons/react"
+import { ArrowLeft, Loader2, Receipt } from "lucide-react"
 import { formatUnits } from "ethers"
 import { useAuth } from "@/hooks/useAuth"
 import { useTransactions, type SakuTransaction } from "@/hooks/useTransactions"
 import { describeTransaction } from "@/lib/receipt-content"
 import BottomNavigation from "@/components/home/bottom-navigation"
 import ReceiptModal from "@/components/transactions/receipt-modal"
+import IconTile from "@/components/ui/icon-tile"
+import WebActivity from "@/components/web/web-activity"
+import { useWebShell } from "@/components/web/shell"
 
 const USDC_DECIMALS = 6
 
@@ -44,6 +48,7 @@ function TransactionsView() {
   const { user, isLoading, isAuthenticated } = useAuth()
   const { transactions, isLoading: loadingTx } = useTransactions(50)
   const [selectedTx, setSelectedTx] = useState<SakuTransaction | null>(null)
+  const shell = useWebShell()
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace("/get-started")
@@ -74,6 +79,17 @@ function TransactionsView() {
   }
 
   if (!user) return null
+
+  // The web wallet lays the same list out as a table. The data, the `?tx=` hand-off and the
+  // receipt stay here, so both layouts open exactly the same receipt.
+  if (shell) {
+    return (
+      <>
+        <WebActivity transactions={transactions} loading={loadingTx} onOpen={setSelectedTx} />
+        {selectedTx && <ReceiptModal transaction={selectedTx} onClose={closeReceipt} />}
+      </>
+    )
+  }
 
   const groups = transactions.reduce<Record<string, SakuTransaction[]>>((acc, tx) => {
     const key = dayKey(tx.occurredAt)
@@ -109,7 +125,7 @@ function TransactionsView() {
           <div className="space-y-6">
             {Object.entries(groups).map(([day, rows]) => (
               <div key={day} className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 px-1 pb-1">
+                <p className="text-[12px] font-medium text-black/40 px-1 pb-1">
                   {day}
                 </p>
 
@@ -122,17 +138,12 @@ function TransactionsView() {
                       onClick={() => setSelectedTx(tx)}
                       className="group w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-black/[0.02] transition-colors text-left"
                     >
-                      <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                          incoming ? "bg-emerald-100 text-emerald-600" : "bg-orange-100 text-[#F0A353]"
-                        }`}
-                      >
-                        {incoming ? (
-                          <ArrowDownLeft className="w-5 h-5" />
-                        ) : (
-                          <ArrowUpRight className="w-5 h-5" />
-                        )}
-                      </div>
+                      <IconTile
+                        icon={incoming ? ArrowDownLeft : ArrowUpRight}
+                        tone="soft"
+                        box="w-10 h-10 rounded-2xl"
+                        glyph="w-5 h-5"
+                      />
 
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold text-black/80 truncate">
@@ -152,7 +163,7 @@ function TransactionsView() {
                       <div className="text-right shrink-0">
                         <p
                           className={`text-sm font-black tabular-nums ${
-                            incoming ? "text-emerald-600" : "text-black/80"
+                            incoming ? "text-positive" : "text-black/80"
                           }`}
                         >
                           {incoming ? "+" : "−"}{formatAmount(tx.amount)}

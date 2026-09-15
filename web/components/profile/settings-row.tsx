@@ -40,7 +40,7 @@ interface SettingsRowProps {
 
 export default function SettingsRow({
   icon: Icon,
-  iconClassName = "bg-black/[0.04] text-black/50",
+  iconClassName = "bg-[#F1EFEA] text-ink/75",
   label,
   description,
   value,
@@ -59,14 +59,14 @@ export default function SettingsRow({
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold tracking-tight text-slate-900 truncate">{label}</span>
+        <span className="block text-sm font-medium tracking-tight text-ink truncate">{label}</span>
         {description && (
           <span className="block text-[11px] leading-snug text-black/45 mt-0.5">{description}</span>
         )}
       </span>
 
       {value !== undefined && value !== null && (
-        <span className="shrink-0 text-[13px] font-semibold text-black/55 max-w-[45%] truncate text-right">
+        <span className="shrink-0 text-[13px] font-medium text-black/55 max-w-[45%] truncate text-right">
           {value}
         </span>
       )}

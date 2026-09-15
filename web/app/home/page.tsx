@@ -14,10 +14,13 @@ import BillsToPay from "@/components/home/bills-to-pay"
 import GuardianRequests from "@/components/home/guardian-requests"
 import OnboardingSlider from "@/components/home/onboarding-slider"
 import RecoveryGate from "@/components/home/recovery-gate"
+import WebHome from "@/components/web/web-home"
+import { useWebShell } from "@/components/web/shell"
 
 export default function HomePage() {
   const router = useRouter()
   const { user, isLoading, isAuthenticated } = useAuth()
+  const shell = useWebShell()
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace("/get-started")
@@ -32,6 +35,10 @@ export default function HomePage() {
   }
 
   if (!user || !isAuthenticated) return null
+
+  // In a browser tab, as opposed to the installed app, Home is the web wallet's dashboard. It is
+  // built from the same components as the screen below; see `components/web/`.
+  if (shell) return <WebHome />
 
   return (
     <div className="min-h-dvh bg-white font-sans relative max-w-lg mx-auto">

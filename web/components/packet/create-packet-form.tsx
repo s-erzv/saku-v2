@@ -113,7 +113,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
           </div>
 
           <div className="rounded-2xl border border-black/8 bg-[#FAFAFA] p-4 space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-black/35">Code</p>
+            <p className="text-[12px] font-medium text-black/35">Code</p>
             <p className="text-2xl font-black tracking-[0.2em] font-mono">{packet.code}</p>
           </div>
 
@@ -169,7 +169,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
             </div>
 
             <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-6 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+              <p className="text-[12px] font-medium text-black/35">
                 Total amount
               </p>
               <div className="mt-3 flex items-center justify-center gap-2">
@@ -199,7 +199,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
                     type="button"
                     onClick={money.toggleUnit}
                     disabled={busy}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/[0.06] text-[10px] font-bold uppercase tracking-widest text-black/55 hover:bg-black/10 transition-colors disabled:opacity-40"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/[0.06] text-[11px] font-medium text-black/55 hover:bg-black/10 transition-colors disabled:opacity-40"
                   >
                     <ArrowLeftRight className="w-3 h-3" />
                     {money.unit === "usdc" ? money.currency.code : "USDC"}
@@ -210,7 +210,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                <label className="text-[12px] font-medium text-black/45">
                   Slots
                 </label>
                 <input
@@ -226,7 +226,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                <label className="text-[12px] font-medium text-black/45">
                   Split
                 </label>
                 <div className="flex gap-1.5">
@@ -249,7 +249,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+              <label className="text-[12px] font-medium text-black/45">
                 Expires
               </label>
               <div className="grid grid-cols-5 gap-1.5">
@@ -280,7 +280,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
             {/* What the recipient will actually open. Live, so picking a style is a decision made
                 against the real thing rather than a 100px swatch. */}
             <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-black/45">Preview</p>
+              <p className="text-[12px] font-medium text-black/45">Preview</p>
               <div className="max-w-[17rem] mx-auto">
                 <PacketEnvelope
                   theme={theme}
@@ -308,7 +308,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
 
             <div className="space-y-1.5">
               <div className="flex items-baseline justify-between">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                <label className="text-[12px] font-medium text-black/45">
                   Your letter
                 </label>
                 <span className="text-[10px] tabular-nums text-black/30">{message.length}/600</span>

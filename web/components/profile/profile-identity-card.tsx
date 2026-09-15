@@ -115,7 +115,7 @@ export default function ProfileIdentityCard() {
                 <User className="w-8 h-8 opacity-25" />
               )}
             </button>
-            <span className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-amber-500 border-2 border-[#0A0A0A] flex items-center justify-center pointer-events-none">
+            <span className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-gilt border-2 border-[#0A0A0A] flex items-center justify-center pointer-events-none">
               <Camera className="w-3.5 h-3.5 text-black" />
             </span>
           </div>

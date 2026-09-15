@@ -24,7 +24,7 @@ export default function SettingsGroup({ title, children }: SettingsGroupProps) {
   return (
     <section>
       {title && (
-        <h2 className="px-1 mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-black/40">
+        <h2 className="px-1 mb-2 text-[13px] font-medium text-black/50">
           {title}
         </h2>
       )}

@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ArrowLeftRight, CheckCircle, ExternalLink, Loader2, Receipt, RotateCcw, Wallet } from "lucide-react"
+import { ArrowLeftRight, CheckCircle, ExternalLink, Loader2, Receipt, RotateCcw, Wallet } from "lucide-react"
 import { parseUnits } from "ethers"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
@@ -32,6 +32,8 @@ import ReceiptModal from "@/components/transactions/receipt-modal"
 import { rememberRecentBank, rememberRecentPhone } from "@/lib/recent-recipients"
 import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
 import { formatUsdc } from "@/lib/fees"
+import ScreenHeader from "@/components/ui/screen-header"
+import { useScreenNav } from "@/components/web/shell"
 
 interface Quote {
   stableOut?: number
@@ -58,6 +60,7 @@ type Step = "form" | "review"
 
 export default function OfframpPage() {
   const router = useRouter()
+  const { exit } = useScreenNav()
   const { user, wallet, isLoading, isAuthenticated } = useAuth()
   const { address, status } = useMpcWallet()
   const { phase, error, lockTxHash, result, recipientHash, resolveRecipient, send, requestRefund } = useOfframp()
@@ -302,7 +305,7 @@ export default function OfframpPage() {
                 href={explorerTxUrl(result.settleTxHash)}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-700 hover:underline"
+                className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-gilt-deep hover:underline"
               >
                 Swap transaction <ExternalLink className="w-3 h-3" />
               </a>
@@ -329,7 +332,7 @@ export default function OfframpPage() {
               </button>
             )}
             <button
-              onClick={() => router.push("/home")}
+              onClick={exit}
               className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
             >
               Back to Home
@@ -369,7 +372,7 @@ export default function OfframpPage() {
             Claim refund
           </button>
           <button
-            onClick={() => router.push("/home")}
+            onClick={exit}
             className="w-full py-3 text-sm font-semibold text-black/45"
           >
             Back to Home
@@ -382,16 +385,7 @@ export default function OfframpPage() {
   return (
     <div className="min-h-dvh bg-white font-sans">
       <div className="max-w-lg mx-auto px-5 py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => (step === "review" ? setStep("form") : router.push("/home"))}
-            aria-label="Back"
-            className="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-black tracking-tight">Send to e-wallet</h1>
-        </div>
+        <ScreenHeader title="Send to e-wallet" onBack={step === "review" ? () => setStep("form") : undefined} />
 
         {quote?.offrampEnabled === false ? (
           <div className="p-5 rounded-3xl bg-red-50 border border-red-200 flex items-start gap-3">
@@ -418,7 +412,7 @@ export default function OfframpPage() {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                <label className="text-[12px] font-medium text-black/45">
                   Destination
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -440,7 +434,7 @@ export default function OfframpPage() {
 
               {rail === "bank" ? (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                  <label className="text-[12px] font-medium text-black/45">
                     Bank
                   </label>
                   <BankPicker banks={banks} value={bankCode} onSelect={setBankCode} loading={loadingBanks} />
@@ -459,7 +453,7 @@ export default function OfframpPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                  <label className="text-[12px] font-medium text-black/45">
                     Recipient number
                   </label>
                   <ContactPicker onPick={(cc, ph) => { setCountryCode(cc); setPhone(ph) }} />
@@ -480,7 +474,7 @@ export default function OfframpPage() {
               )}
 
               <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-6 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+                <p className="text-[12px] font-medium text-black/35">
                   Amount to send
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-2">
@@ -522,7 +516,7 @@ export default function OfframpPage() {
                         <span className="text-black/40 font-medium">
                           Fee ({((quote.feeBps ?? 0) / 100).toFixed(2)}%, added on top)
                         </span>
-                        <span className="font-bold tabular-nums text-[#F0A353]">
+                        <span className="font-bold tabular-nums text-gilt-deep">
                           +{formatUsdc(quote.feeUsdc)} USDC
                         </span>
                       </div>
@@ -579,7 +573,7 @@ export default function OfframpPage() {
         ) : (
           <div className="rounded-3xl border border-black/8 p-5 space-y-5 animate-in slide-in-from-bottom-2 duration-200">
             <div className="text-center py-2">
-              <p className="text-xs font-bold uppercase tracking-widest text-black/40">You pay</p>
+              <p className="text-[12px] font-medium text-black/40">You pay</p>
               <p className="text-4xl font-black tabular-nums mt-1">{quote?.grossUsdc ?? amount}</p>
               <p className="text-sm font-bold text-black/45">USDC</p>
             </div>

@@ -14,8 +14,10 @@
 
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowRight, Receipt } from "lucide-react"
+import { ArrowRight } from "lucide-react"
+import { Receipt } from "@phosphor-icons/react"
 import { useSplitBills } from "@/hooks/useSplitBill"
+import IconTile from "@/components/ui/icon-tile"
 
 export default function BillsToPay() {
   const router = useRouter()
@@ -30,14 +32,14 @@ export default function BillsToPay() {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans space-y-3">
       <div className="flex items-end justify-between px-1">
         <div>
-          <p className="text-[11px] font-bold text-purple-600">
+          <p className="text-[12px] font-medium text-gilt-deep">
             You owe
           </p>
-          <h2 className="text-lg font-black tracking-tight">
+          <h2 className="text-lg font-semibold tracking-tight">
             {unpaid.length} {unpaid.length === 1 ? "bill" : "bills"} to settle
           </h2>
         </div>
-        <p className="text-sm font-black tabular-nums text-black/55 pb-1">{total.toFixed(2)} USDC</p>
+        <p className="text-sm font-semibold tabular-nums text-black/55 pb-1">{total.toFixed(2)} USDC</p>
       </div>
 
       <div className="space-y-2">
@@ -48,22 +50,20 @@ export default function BillsToPay() {
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.06 }}
-            className="group w-full rounded-3xl bg-white/60 backdrop-blur-xl border border-white/70 p-3.5 shadow-[0_10px_30px_rgba(147,51,234,0.08)] text-left"
+            className="group w-full rounded-3xl bg-white border border-black/[0.06] p-3.5 text-left transition-colors hover:border-black/15"
           >
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 transition-transform group-hover:rotate-6">
-                <Receipt className="w-5 h-5" />
-              </div>
+              <IconTile icon={Receipt} box="w-12 h-12 rounded-2xl" />
 
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-black tracking-tight truncate">{share.title}</p>
+                <p className="text-sm font-semibold tracking-tight truncate">{share.title}</p>
                 <p className="text-[11px] text-black/40 truncate">
                   {share.fromName ? `From ${share.fromName}` : "Split bill"} ·{" "}
                   {Number(share.amount).toFixed(2)} USDC
                 </p>
               </div>
 
-              <span className="shrink-0 flex items-center gap-1 px-3.5 py-2 rounded-xl bg-black text-white text-[11px] font-bold group-hover:bg-purple-600 transition-colors">
+              <span className="shrink-0 flex items-center gap-1 px-3.5 py-2 rounded-xl bg-black text-white text-[11px] font-medium group-hover:bg-black/80 transition-colors">
                 Pay
                 <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
               </span>

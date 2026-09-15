@@ -230,14 +230,14 @@ export default function PayQrisPage() {
           <div className="pt-3 border-t border-black/8 text-center">
             {info.amount !== null ? (
               <>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+                <p className="text-[12px] font-medium text-black/35">
                   Amount
                 </p>
                 <p className="text-4xl font-black tabular-nums mt-1">{formatFiat(info.amount)}</p>
               </>
             ) : (
               <>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+                <p className="text-[12px] font-medium text-black/35">
                   Enter amount (USDC)
                 </p>
                 <div className="mt-2 flex items-center justify-center gap-2">

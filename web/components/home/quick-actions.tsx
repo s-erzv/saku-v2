@@ -67,32 +67,36 @@
  */
 
 import { useRouter } from "next/navigation"
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Gift, Send, TrendingUp, Users2 } from "lucide-react"
+import { Bank, ChartLineUp, CreditCard, Gift, PaperPlaneTilt, Receipt, type Icon } from "@phosphor-icons/react"
+import { ChevronRight } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import SectionHeading from "@/components/home/section-heading"
 import GlowCard from "@/components/ui/glow-card"
+import IconTile from "@/components/ui/icon-tile"
 
 interface QuickAction {
   id: string
   label: string
   /** One line, plain verb first, saying what the tile actually does. */
   description: string
-  icon: React.ElementType
-  color: string
+  icon: Icon
   href: string
   ready: boolean
 }
 
 // QR Pay is deliberately absent: it is the raised button in the middle of the nav bar, and
 // listing it here too would be the same action twice on one screen.
+//
+// One ink-and-gold tile for all six rather than a colour per feature. The colours only ever said
+// "these are different things", which the labels already say.
 const quickActions: QuickAction[] = [
-  { id: "topup", label: "Top Up", description: "Add money", icon: ArrowDownLeft, color: "bg-orange-100 text-[#F0A353]", href: "/topup", ready: true },
-  { id: "transfer", label: "Transfer", description: "To a phone number", icon: Send, color: "bg-blue-100 text-blue-600", href: "/transfer", ready: true },
-  { id: "packet", label: "Packet", description: "Send a gift", icon: Gift, color: "bg-red-100 text-red-600", href: "/packet", ready: true },
-  { id: "split-bill", label: "Split Bill", description: "Share a cost", icon: Users2, color: "bg-purple-100 text-purple-600", href: "/split-bill", ready: true },
-  { id: "withdraw", label: "Withdraw", description: "To your bank", icon: ArrowUpRight, color: "bg-slate-200 text-slate-600", href: "/offramp", ready: true },
-  { id: "staking", label: "Earn", description: "Grow your balance", icon: TrendingUp, color: "bg-teal-100 text-teal-600", href: "/staking", ready: true },
+  { id: "topup", label: "Top Up", description: "Add money", icon: CreditCard, href: "/topup", ready: true },
+  { id: "transfer", label: "Transfer", description: "To a phone number", icon: PaperPlaneTilt, href: "/transfer", ready: true },
+  { id: "packet", label: "Packet", description: "Send a gift", icon: Gift, href: "/packet", ready: true },
+  { id: "split-bill", label: "Split Bill", description: "Share a cost", icon: Receipt, href: "/split-bill", ready: true },
+  { id: "withdraw", label: "Withdraw", description: "To your bank", icon: Bank, href: "/offramp", ready: true },
+  { id: "staking", label: "Earn", description: "Grow your balance", icon: ChartLineUp, href: "/staking", ready: true },
 ]
 
 export default function QuickActions() {
@@ -118,7 +122,6 @@ export default function QuickActions() {
             narrower, instead of two designs that swap over at 640px. */}
         <div className="grid w-full grid-cols-3 gap-[clamp(6px,1.95vw,10px)]">
         {quickActions.map((action) => {
-          const Icon = action.icon
           const disabled = !walletAddress || isLoading || !action.ready
 
           return (
@@ -129,15 +132,16 @@ export default function QuickActions() {
               title={!action.ready ? "Coming soon" : undefined}
               className="group flex min-w-0 flex-col items-start gap-[clamp(7px,2.34vw,12px)] rounded-[clamp(12px,3.52vw,18px)] border border-black/[0.10] bg-white/70 p-[clamp(8px,2.34vw,12px)] text-left transition-[background-color,border-color,transform] duration-200 hover:border-black/[0.18] hover:bg-white/90 active:scale-[0.98] disabled:opacity-40 disabled:hover:border-black/[0.10] disabled:hover:bg-white/70 disabled:active:scale-100"
             >
-              <span
-                className={`w-[clamp(28px,8.59vw,44px)] h-[clamp(28px,8.59vw,44px)] rounded-[clamp(10px,3.13vw,16px)] ${action.color} flex items-center justify-center transition-transform duration-300 group-enabled:group-hover:-translate-y-0.5`}
-              >
-                <Icon className="w-[clamp(14px,4.30vw,22px)] h-[clamp(14px,4.30vw,22px)]" strokeWidth={2.5} />
-              </span>
+              <IconTile
+                icon={action.icon}
+                box="w-[clamp(28px,8.59vw,44px)] h-[clamp(28px,8.59vw,44px)] rounded-[clamp(10px,3.13vw,14px)]"
+                glyph="w-[clamp(15px,4.30vw,22px)] h-[clamp(15px,4.30vw,22px)]"
+                className="transition-transform duration-300 group-enabled:group-hover:-translate-y-0.5"
+              />
 
               <span className="block w-full min-w-0">
                 <span className="flex items-center gap-[clamp(2px,0.78vw,4px)]">
-                  <span className="text-[length:clamp(10px,2.54vw,13px)] font-bold text-slate-900 truncate">
+                  <span className="text-[length:clamp(10px,2.54vw,13px)] font-semibold text-ink truncate">
                     {action.label}
                   </span>
                   {/* Decorative — the whole tile is the button. It shrinks with everything else

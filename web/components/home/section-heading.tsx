@@ -27,11 +27,11 @@ interface SectionHeadingProps {
 export default function SectionHeading({ title, href, linkLabel = "See all" }: SectionHeadingProps) {
   return (
     <div className="flex items-baseline justify-between px-1 mb-3">
-      <h2 className="text-[length:clamp(15px,3.52vw,18px)] font-bold tracking-tight text-slate-900">{title}</h2>
+      <h2 className="text-[length:clamp(15px,3.52vw,18px)] font-semibold tracking-tight text-ink">{title}</h2>
       {href && (
         <Link
           href={href}
-          className="flex items-center gap-0.5 text-[length:clamp(10px,2.54vw,13px)] font-semibold text-black/40 hover:text-black/70 transition-colors"
+          className="flex items-center gap-0.5 text-[length:clamp(10px,2.54vw,13px)] font-medium text-black/45 hover:text-ink transition-colors"
         >
           {linkLabel}
           <ChevronRight className="w-[clamp(12px,3.13vw,16px)] h-[clamp(12px,3.13vw,16px)]" />

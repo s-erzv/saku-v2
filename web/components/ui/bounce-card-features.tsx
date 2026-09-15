@@ -337,7 +337,7 @@ function EarnGraphic() {
           </p>
         </div>
         <motion.span
-          className="flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm"
+          className="flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black text-amber-700 shadow-sm"
           animate={{ y: [0, -3, 0] }}
           transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
         >
@@ -351,7 +351,7 @@ function EarnGraphic() {
         <svg viewBox="0 0 400 140" className="h-[110px] w-full md:h-[130px]" preserveAspectRatio="none" aria-hidden>
           <defs>
             <linearGradient id="saku-earn-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.45" />
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
               <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
             </linearGradient>
           </defs>
@@ -364,7 +364,7 @@ function EarnGraphic() {
               x2="400"
               y2={y}
               stroke="#ffffff"
-              strokeOpacity="0.25"
+              strokeOpacity="0.38"
               strokeWidth="1"
               strokeDasharray="4 6"
               vectorEffect="non-scaling-stroke"
@@ -392,7 +392,7 @@ function EarnGraphic() {
 
         {/* Payout marker riding the end of the curve. */}
         <motion.div
-          className="absolute right-[2%] top-0 flex -translate-y-1/2 items-center gap-1 rounded-full bg-white px-2 py-1 text-[9px] font-black text-emerald-700 shadow-md"
+          className="absolute right-[2%] top-0 flex -translate-y-1/2 items-center gap-1 rounded-full bg-white px-2 py-1 text-[9px] font-black text-amber-700 shadow-md"
           animate={{ opacity: [0, 0, 1, 1, 0], scale: [0.7, 0.7, 1, 1, 0.7] }}
           transition={{ duration: 4.8, times: [0, 0.5, 0.6, 0.88, 1], repeat: Infinity }}
         >
@@ -413,9 +413,9 @@ function EarnGraphic() {
 /* ----------------------------------------------------------- graphic 4: split */
 
 const SHARES = [
-  { x: "-34%", name: "Adi" },
-  { x: "0%", name: "Rina" },
-  { x: "34%", name: "Bayu" },
+  { left: "17%", name: "Adi" },
+  { left: "50%", name: "Rina" },
+  { left: "83%", name: "Bayu" },
 ]
 
 function SplitGraphic() {
@@ -440,10 +440,10 @@ function SplitGraphic() {
         {SHARES.map((share, i) => (
           <motion.div
             key={share.name}
-            className="absolute"
+            className="absolute top-1/2 -ml-[11px] -mt-[11px]"
             animate={{
-              x: ["0%", "0%", share.x, share.x, share.x],
-              y: [0, 0, 34, 34, 34],
+              left: ["50%", "50%", share.left, share.left, share.left],
+              y: [0, 0, 26, 26, 26],
               opacity: [0, 0, 1, 1, 0],
               scale: [0.5, 0.5, 1, 1, 1],
             }}
@@ -524,14 +524,14 @@ export function BouncyCardsFeatures() {
         <div className="grid grid-cols-12 gap-4">
           <BounceCard className="col-span-12 md:col-span-8">
             <CardTitle>Earn while it sits still</CardTitle>
-            <CardPanel className="bg-gradient-to-br from-emerald-400 to-teal-500">
+            <CardPanel className="bg-gradient-to-br from-amber-400 via-yellow-500 to-yellow-700">
               <EarnGraphic />
             </CardPanel>
           </BounceCard>
 
           <BounceCard className="col-span-12 md:col-span-4">
             <CardTitle>Split bills in one tap</CardTitle>
-            <CardPanel className="bg-gradient-to-br from-rose-400 to-red-500">
+            <CardPanel className="bg-gradient-to-br from-orange-400 via-orange-600 to-orange-800">
               <SplitGraphic />
             </CardPanel>
           </BounceCard>

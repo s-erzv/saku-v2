@@ -15,15 +15,17 @@
  */
 
 import { useRouter } from "next/navigation"
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Loader2, Receipt } from "lucide-react"
+import { ArrowDownLeft, ArrowUpRight } from "@phosphor-icons/react"
+import { ChevronRight, Loader2, Receipt } from "lucide-react"
 import { formatUnits } from "ethers"
 import { useTransactions } from "@/hooks/useTransactions"
 import { describeTransaction } from "@/lib/receipt-content"
 import SectionHeading from "@/components/home/section-heading"
+import IconTile from "@/components/ui/icon-tile"
 
 const USDC_DECIMALS = 6
 
-function formatAmount(amount: string | null) {
+export function formatAmount(amount: string | null) {
   if (!amount) return "0.00"
   try {
     return Number(formatUnits(amount, USDC_DECIMALS)).toLocaleString("en-US", {
@@ -35,7 +37,7 @@ function formatAmount(amount: string | null) {
   }
 }
 
-function formatWhen(iso: string) {
+export function formatWhen(iso: string) {
   const date = new Date(iso)
   return date.toLocaleDateString("en-US", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
 }
@@ -70,19 +72,18 @@ export default function RecentTransactions() {
                   onClick={() => router.push(`/transactions?tx=${tx.txHash}`)}
                   className="group w-full flex items-center gap-[clamp(8px,2.34vw,12px)] p-[clamp(8px,2.34vw,12px)] rounded-2xl hover:bg-white/60 transition-colors text-left"
                 >
-                  <div
-                    className={`w-[clamp(30px,7.81vw,40px)] h-[clamp(30px,7.81vw,40px)] rounded-full flex items-center justify-center shrink-0 ${
-                      incoming ? "bg-emerald-100 text-emerald-600" : "bg-orange-100 text-[#F0A353]"
-                    }`}
-                  >
-                    {incoming ? <ArrowDownLeft className="w-[clamp(15px,3.91vw,20px)] h-[clamp(15px,3.91vw,20px)]" /> : <ArrowUpRight className="w-[clamp(15px,3.91vw,20px)] h-[clamp(15px,3.91vw,20px)]" />}
-                  </div>
+                  <IconTile
+                    icon={incoming ? ArrowDownLeft : ArrowUpRight}
+                    tone="soft"
+                    box="w-[clamp(30px,7.81vw,40px)] h-[clamp(30px,7.81vw,40px)] rounded-full"
+                    glyph="w-[clamp(15px,3.91vw,20px)] h-[clamp(15px,3.91vw,20px)]"
+                  />
 
                   <div className="min-w-0 flex-1">
                     {/* The kind of thing it was, then who it was with. The name used to lead,
                         which read well for a transfer and badly for everything else: "Sarah"
                         alone never said whether it was a QR payment or a packet. */}
-                    <p className="text-[length:clamp(11px,2.73vw,14px)] font-bold text-slate-900 truncate">{label}</p>
+                    <p className="text-[length:clamp(11px,2.73vw,14px)] font-semibold text-ink truncate">{label}</p>
                     <p className="text-[length:clamp(8px,2.15vw,11px)] text-black/40 truncate">
                       {tx.counterpartyName ?? (incoming ? "Received" : "Sent")}
                     </p>
@@ -92,7 +93,7 @@ export default function RecentTransactions() {
                       two numbers a person scans for — how much, how long ago — sit in one
                       column instead of on opposite sides of the row. */}
                   <div className="text-right shrink-0">
-                    <p className={`text-[length:clamp(11px,2.73vw,14px)] font-bold tabular-nums ${incoming ? "text-emerald-600" : "text-slate-900"}`}>
+                    <p className={`text-[length:clamp(11px,2.73vw,14px)] font-bold tabular-nums ${incoming ? "text-positive" : "text-ink"}`}>
                       {incoming ? "+" : "−"}{formatAmount(tx.amount)} USDC
                     </p>
                     <p className="text-[length:clamp(8px,2.15vw,11px)] text-black/35 tabular-nums">{formatWhen(tx.occurredAt)}</p>

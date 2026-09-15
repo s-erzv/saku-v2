@@ -93,7 +93,7 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-6 text-center space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+          <p className="text-[12px] font-medium text-black/35">
             {bill.isCreator ? "Owed to you" : "Total"}
           </p>
           <p className="text-4xl font-black tabular-nums">{bill.totalAmount}</p>
@@ -107,7 +107,7 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
         {/* The receipt this came from. Only bills created by item have one. */}
         {breakdown && breakdown.items.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 px-1">
+            <p className="text-[12px] font-medium text-black/35 px-1">
               Receipt
             </p>
             <div className="rounded-2xl border border-black/6 p-4 space-y-2">
@@ -154,7 +154,7 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
         )}
 
         <div className="space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 px-1">Shares</p>
+          <p className="text-[12px] font-medium text-black/35 px-1">Shares</p>
           {bill.shares.map((s) => {
             const isOpen = expanded === s.id
             const detail = s.breakdown
@@ -245,7 +245,7 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
 
         {owesNow ? (
           <div className="space-y-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 px-1">
+            <p className="text-[12px] font-medium text-black/35 px-1">
               How are you paying?
             </p>
 

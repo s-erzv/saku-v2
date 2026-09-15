@@ -46,7 +46,7 @@ export default function ItemEditor({ items, onChange, participants, currency }: 
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
-        <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+        <label className="text-[12px] font-medium text-black/45">
           Items
         </label>
         <p className="text-[10px] text-black/35">

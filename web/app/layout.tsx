@@ -3,21 +3,24 @@ import type React from "react"
 import { Caveat, Geist, Geist_Mono, Space_Mono } from "next/font/google"
 import { AuthProvider } from "@/hooks/useAuth"
 import { MpcWalletProvider } from "@/hooks/useMpcWallet"
+import AppFrame from "@/components/web/web-frame"
 import MiniAppReady from "./miniapp-ready"
 import ServiceWorkerRegister from "./service-worker-register"
 import "./globals.css"
 
+// No `weight` list: that loads Geist as a variable font, which the in-between weights in
+// `globals.css` (550, 580, 620) need. A fixed list would snap them to the nearest static cut.
 const geist = Geist({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   variable: "--font-geist",
   display: "swap",
   preload: true,
 })
 
+// Variable for the same reason as Geist: codes and addresses follow the in-between weights too,
+// instead of snapping 550 up to a static 600.
 const geistMono = Geist_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
   variable: "--font-geist-mono",
   display: "swap",
   preload: true,
@@ -121,7 +124,9 @@ export default function RootLayout({
         <MiniAppReady />
         <ServiceWorkerRegister />
         <AuthProvider>
-          <MpcWalletProvider>{children}</MpcWalletProvider>
+          <MpcWalletProvider>
+            <AppFrame>{children}</AppFrame>
+          </MpcWalletProvider>
         </AuthProvider>
       </body>
     </html>

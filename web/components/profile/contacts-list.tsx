@@ -11,14 +11,14 @@
 
 import { useState } from "react"
 import { Loader2, Plus, Send, Trash2, UserPlus, Users } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useScreenNav } from "@/components/web/shell"
 import { useContacts } from "@/hooks/useContacts"
 import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
 import ProfileAvatar from "@/components/ui/profile-avatar"
 
 export default function ContactsList() {
-  const router = useRouter()
+  const { go } = useScreenNav()
   const { contacts, isLoading, error, addContact, removeContact } = useContacts()
 
   const [adding, setAdding] = useState(false)
@@ -50,7 +50,7 @@ export default function ContactsList() {
       ) : (
         <div className="rounded-3xl border border-black/8 bg-white p-5 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">Name</label>
+            <label className="text-[12px] font-medium text-black/45">Name</label>
             <input
               value={label}
               autoFocus
@@ -62,7 +62,7 @@ export default function ContactsList() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">Number</label>
+            <label className="text-[12px] font-medium text-black/45">Number</label>
             <div className="relative">
               <CountryCodeDropdown onSelect={setCountryCode} selectedCode={countryCode} />
               <input
@@ -141,7 +141,7 @@ export default function ContactsList() {
 
               {c.onSaku && (
                 <button
-                  onClick={() => router.push("/transfer")}
+                  onClick={() => go("/transfer")}
                   aria-label={`Send to ${c.label}`}
                   className="p-2.5 rounded-xl bg-black/[0.04] hover:bg-black hover:text-white transition-colors"
                 >

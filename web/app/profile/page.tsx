@@ -13,11 +13,14 @@ import SettingsGroup from "@/components/profile/settings-group"
 import ContactsList from "@/components/profile/contacts-list"
 import HomeHeader from "@/components/home/header"
 import BottomNavigation from "@/components/home/bottom-navigation"
+import WebProfile from "@/components/web/web-profile"
+import { useWebShell } from "@/components/web/shell"
 
 export default function ProfilePage() {
   const router = useRouter()
   const { isLoading, isAuthenticated } = useAuth()
   const [activeTab, setActiveTab] = useState<'profile' | 'contacts'>('profile')
+  const shell = useWebShell()
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -34,6 +37,9 @@ export default function ProfilePage() {
   )
 
   if (!isAuthenticated) return null
+
+  // Both tabs side by side in the web wallet, where there is room for them.
+  if (shell) return <WebProfile />
 
   const tabs = [
     { id: 'profile' as const, label: 'My Saku', icon: User },
