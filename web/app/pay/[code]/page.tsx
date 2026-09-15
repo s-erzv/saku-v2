@@ -125,7 +125,7 @@ export default function PayRequestPage({ params }: { params: Promise<{ code: str
         </div>
 
         <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-8 text-center space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">Paying</p>
+          <p className="text-[12px] font-medium text-black/35">Paying</p>
           <p className="text-lg font-bold">{details.payeeName}</p>
 
           {details.amount ? (

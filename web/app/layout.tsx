@@ -17,9 +17,10 @@ const geist = Geist({
   preload: true,
 })
 
+// Variable for the same reason as Geist: codes and addresses follow the in-between weights too,
+// instead of snapping 550 up to a static 600.
 const geistMono = Geist_Mono({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
   variable: "--font-geist-mono",
   display: "swap",
   preload: true,

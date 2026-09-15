@@ -153,7 +153,7 @@ function PacketHub() {
         {tab === "claim" && (
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+              <label className="text-[12px] font-medium text-black/45">
                 Have a code?
               </label>
               <div className="flex gap-2">
@@ -185,7 +185,7 @@ function PacketHub() {
 
             <div className="space-y-2">
               <div className="flex items-baseline justify-between px-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-black/35">
+                <p className="text-[12px] font-medium text-black/35">
                   Waiting for you
                 </p>
                 {invited.length > 0 && (
@@ -247,7 +247,7 @@ function PacketHub() {
           <div className="space-y-6">
             <div className="space-y-2">
               <div className="flex items-baseline justify-between px-1">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-black/35">
+                <p className="text-[12px] font-medium text-black/35">
                   You sent
                 </p>
                 <button
@@ -403,7 +403,7 @@ function PacketHub() {
 
             {claimed.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 px-1">
+                <p className="text-[12px] font-medium text-black/35 px-1">
                   You opened
                 </p>
                 {claimed.map((claim, index) => (

@@ -307,7 +307,7 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
         {currency && (
           <button
             onClick={() => setShowLocal((v) => !v)}
-            className="mx-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/[0.05] text-[10px] font-bold uppercase tracking-widest text-black/55 hover:bg-black/10 transition-colors"
+            className="mx-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/[0.05] text-[11px] font-medium text-black/55 hover:bg-black/10 transition-colors"
           >
             <ArrowLeftRight className="w-3 h-3" />
             Show in {showLocal ? "USDC" : currency.code}

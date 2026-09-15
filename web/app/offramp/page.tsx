@@ -412,7 +412,7 @@ export default function OfframpPage() {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                <label className="text-[12px] font-medium text-black/45">
                   Destination
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -434,7 +434,7 @@ export default function OfframpPage() {
 
               {rail === "bank" ? (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                  <label className="text-[12px] font-medium text-black/45">
                     Bank
                   </label>
                   <BankPicker banks={banks} value={bankCode} onSelect={setBankCode} loading={loadingBanks} />
@@ -453,7 +453,7 @@ export default function OfframpPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                  <label className="text-[12px] font-medium text-black/45">
                     Recipient number
                   </label>
                   <ContactPicker onPick={(cc, ph) => { setCountryCode(cc); setPhone(ph) }} />
@@ -474,7 +474,7 @@ export default function OfframpPage() {
               )}
 
               <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-6 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+                <p className="text-[12px] font-medium text-black/35">
                   Amount to send
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-2">
@@ -573,7 +573,7 @@ export default function OfframpPage() {
         ) : (
           <div className="rounded-3xl border border-black/8 p-5 space-y-5 animate-in slide-in-from-bottom-2 duration-200">
             <div className="text-center py-2">
-              <p className="text-xs font-bold uppercase tracking-widest text-black/40">You pay</p>
+              <p className="text-[12px] font-medium text-black/40">You pay</p>
               <p className="text-4xl font-black tabular-nums mt-1">{quote?.grossUsdc ?? amount}</p>
               <p className="text-sm font-bold text-black/45">USDC</p>
             </div>

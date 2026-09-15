@@ -119,7 +119,7 @@ export default function StakingPage() {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/65">
+                  <p className="text-[12px] font-medium text-black/65">
                     Current APY
                   </p>
                   <p className="text-4xl font-black tabular-nums mt-1">
@@ -140,13 +140,13 @@ export default function StakingPage() {
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-black/10">
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-widest text-black/65">
+                  <p className="text-[12px] font-medium text-black/65">
                     You staked
                   </p>
                   <p className="text-xl font-black tabular-nums mt-0.5">{info?.staked ?? "0"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-widest text-black/65">
+                  <p className="text-[12px] font-medium text-black/65">
                     Earned
                   </p>
                   {/* Was emerald, the one cold accent on the screen and the only place green
@@ -200,7 +200,7 @@ export default function StakingPage() {
             </div>
 
             <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-6 text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+              <p className="text-[12px] font-medium text-black/35">
                 Amount to {tab}
               </p>
               <div className="mt-3 flex items-center justify-center gap-2">

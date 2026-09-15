@@ -50,7 +50,7 @@ export default function ContactsList() {
       ) : (
         <div className="rounded-3xl border border-black/8 bg-white p-5 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">Name</label>
+            <label className="text-[12px] font-medium text-black/45">Name</label>
             <input
               value={label}
               autoFocus
@@ -62,7 +62,7 @@ export default function ContactsList() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">Number</label>
+            <label className="text-[12px] font-medium text-black/45">Number</label>
             <div className="relative">
               <CountryCodeDropdown onSelect={setCountryCode} selectedCode={countryCode} />
               <input

@@ -230,7 +230,7 @@ export default function TopupPage() {
           <>
             <div className="space-y-4">
               <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-6 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+                <p className="text-[12px] font-medium text-black/35">
                   Amount to receive
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-2">

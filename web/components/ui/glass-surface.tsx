@@ -4,8 +4,8 @@
  * GlassSurface — vendored from React Bits (reactbits.dev/components/glass-surface),
  * TypeScript + Tailwind variant.
  *
- * Kept as close to upstream as possible so it can be re-pulled when it changes. Two local edits,
- * both marked SAKU below:
+ * Kept as close to upstream as possible so it can be re-pulled when it changes. Three local edits,
+ * all marked SAKU below:
  *
  *  1. The `"use client"` directive, which this app needs and a copy-paste snippet does not.
  *  2. A `theme` prop. Upstream reads `prefers-color-scheme` to decide whether its inset shadows
@@ -13,12 +13,14 @@
  *     and wrong for one sitting on Saku's balance card, which is near-black in every theme — a
  *     light-mode reader would otherwise get dark shadows on a dark card and the glass would
  *     disappear.
+ *  3. The dark fallback — what WebKit and Firefox get — is drawn to match the SVG path rather
+ *     than upstream's frosted-white pane, so an iPhone shows the same glass Chrome does.
  *
  * How it works, briefly, because the SVG is otherwise inscrutable: it renders a displacement map
  * as an inline SVG data URI and uses it as a `backdrop-filter`, so whatever sits behind the
  * element is refracted per colour channel — real chromatic aberration rather than a blur with a
  * border on it. Safari and Firefox do not support filter-function backdrops, which
- * `supportsSVGFilters` detects, and the component falls back to a plain frosted panel there.
+ * `supportsSVGFilters` detects, and the component falls back to a lightly blurred panel with the same rim there.
  */
 
 import React, { useEffect, useRef, useState, useId } from 'react';
@@ -280,14 +282,29 @@ const GlassSurface: React.FC<GlassSurfaceProps> = ({
                         inset 0 -1px 0 0 rgba(255, 255, 255, 0.1)`
           };
         } else {
+          // SAKU: match the SVG path instead of upstream's frosted-white pane. Every iPhone lands
+          // here (WebKit has no filter-function backdrops), and on the balance card upstream's
+          // white wash plus `brightness(1.2)` turned the waves behind it into a flat beige tile —
+          // the same card read as two different designs depending on the browser. A light blur
+          // lets the waves show through the way the refraction does, the rim is the SVG path's own
+          // inset glow, and a hairline of red and blue on the edges stands in for its per-channel
+          // offset. Plain rgba rather than `color-mix`, so older iOS still gets the rim.
+          const saturate = `blur(2.5px) saturate(${Math.max(saturation, 1.35)})`;
           return {
             ...baseStyles,
-            background: 'rgba(255, 255, 255, 0.1)',
-            backdropFilter: 'blur(12px) saturate(1.8) brightness(1.2)',
-            WebkitBackdropFilter: 'blur(12px) saturate(1.8) brightness(1.2)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            boxShadow: `inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
-                        inset 0 -1px 0 0 rgba(255, 255, 255, 0.1)`
+            background: `hsl(0 0% 0% / ${backgroundOpacity})`,
+            backdropFilter: saturate,
+            WebkitBackdropFilter: saturate,
+            boxShadow: `0 0 2px 1px rgba(255, 255, 255, 0.35) inset,
+               0 0 10px 4px rgba(255, 255, 255, 0.15) inset,
+               1.5px 0 1px -0.5px rgba(255, 80, 80, 0.22) inset,
+               -1.5px 0 1px -0.5px rgba(80, 150, 255, 0.22) inset,
+               0px 4px 16px rgba(17, 17, 26, 0.05),
+               0px 8px 24px rgba(17, 17, 26, 0.05),
+               0px 16px 56px rgba(17, 17, 26, 0.05),
+               0px 4px 16px rgba(17, 17, 26, 0.05) inset,
+               0px 8px 24px rgba(17, 17, 26, 0.05) inset,
+               0px 16px 56px rgba(17, 17, 26, 0.05) inset`
           };
         }
       } else {

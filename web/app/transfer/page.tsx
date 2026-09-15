@@ -177,7 +177,7 @@ export default function TransferPage() {
             {step === "receiver" && (
               <div className="rounded-3xl border border-black/8 p-5 space-y-5 animate-in slide-in-from-bottom-2 duration-200">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                  <label className="text-[12px] font-medium text-black/45">
                     Send to
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -208,7 +208,7 @@ export default function TransferPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                  <label className="text-[12px] font-medium text-black/45">
                     Recipient number
                   </label>
                   <ContactPicker onPick={(cc, ph) => { setCountryCode(cc); setPhone(ph) }} />
@@ -268,7 +268,7 @@ export default function TransferPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">Amount</label>
+                  <label className="text-[12px] font-medium text-black/45">Amount</label>
                   <div className="flex items-center gap-2 border-2 border-transparent focus-within:border-black rounded-2xl bg-[#F6F3EE] px-4 py-3 transition-all">
                     <input
                       inputMode="decimal"
@@ -314,7 +314,7 @@ export default function TransferPage() {
             {step === "review" && recipient && (
               <div className="rounded-3xl border border-black/8 p-5 space-y-5 animate-in slide-in-from-bottom-2 duration-200">
                 <div className="text-center py-2">
-                  <p className="text-xs font-bold uppercase tracking-widest text-black/45">Send</p>
+                  <p className="text-[12px] font-medium text-black/45">Send</p>
                   <p className="text-4xl font-black tabular-nums mt-1">{amount}</p>
                   <p className="text-sm font-bold text-black/45">USDC</p>
                 </div>

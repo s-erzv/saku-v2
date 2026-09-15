@@ -404,7 +404,7 @@ function PaySheetBody({ onClose, inline }: { onClose: () => void; inline: boolea
               </button>
 
               <div className="mt-5 space-y-2">
-                <p className="text-center text-[10px] font-bold uppercase tracking-widest text-black/35">
+                <p className="text-center text-[12px] font-medium text-black/35">
                   Or enter a code
                 </p>
                 <input
@@ -467,7 +467,7 @@ function PaySheetBody({ onClose, inline }: { onClose: () => void; inline: boolea
               ) : (
                 <div className="space-y-4">
                   <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-6 text-center">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">
+                    <p className="text-[12px] font-medium text-black/35">
                       They pay exactly
                     </p>
                     <div className="mt-3 flex items-center justify-center gap-2">
@@ -491,7 +491,7 @@ function PaySheetBody({ onClose, inline }: { onClose: () => void; inline: boolea
                         <button
                           type="button"
                           onClick={money.toggleUnit}
-                          className="flex items-center gap-1 rounded-full bg-black/[0.06] px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-black/55 transition-colors hover:bg-black/10"
+                          className="flex items-center gap-1 rounded-full bg-black/[0.06] px-2.5 py-1 text-[11px] font-medium text-black/55 transition-colors hover:bg-black/10"
                         >
                           <ArrowLeftRight className="h-3 w-3" />
                           {money.unit === "usdc" ? currency.code : "USDC"}

@@ -374,7 +374,7 @@ function SplitBillView() {
             {scanError && <p className="text-xs font-medium text-red-600 text-center">{scanError}</p>}
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+              <label className="text-[12px] font-medium text-black/45">
                 What&apos;s it for
               </label>
               <input
@@ -404,7 +404,7 @@ function SplitBillView() {
             {/* Who split it — above the items in item mode, because you cannot assign a line to
                 someone who is not on the bill yet. */}
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+              <label className="text-[12px] font-medium text-black/45">
                 Who split it
               </label>
               {participants.map((p, i) => (
@@ -542,7 +542,7 @@ function SplitBillView() {
                     ] as const
                   ).map(([key, label]) => (
                     <div key={key} className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                      <label className="text-[12px] font-medium text-black/45">
                         {label}
                       </label>
                       <input
@@ -597,7 +597,7 @@ function SplitBillView() {
                   <div className="h-px bg-black/[0.07]" />
 
                   <div className="flex items-baseline justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-black/45">
+                    <p className="text-[12px] font-medium text-black/45">
                       Owed to you
                     </p>
                     <div className="text-right">
@@ -615,7 +615,7 @@ function SplitBillView() {
               </>
             ) : (
               <div className="rounded-3xl border border-black/8 bg-[#FAFAFA] px-5 py-6 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-black/35">Total</p>
+                <p className="text-[12px] font-medium text-black/35">Total</p>
                 <div className="mt-3 flex items-center justify-center gap-2">
                   <input
                     inputMode="decimal"
@@ -666,7 +666,7 @@ function SplitBillView() {
             {tab === "owed" && (
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between px-1">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-black/35">
+                  <p className="text-[12px] font-medium text-black/35">
                     Bills addressed to you
                   </p>
                   {unpaid.length > 0 && (
@@ -726,7 +726,7 @@ function SplitBillView() {
 
             {tab === "mine" && (
             <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-black/35 px-1">
+              <p className="text-[12px] font-medium text-black/35 px-1">
                 Bills you created
               </p>
 
