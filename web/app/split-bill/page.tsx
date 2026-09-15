@@ -21,7 +21,6 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
 import {
-  ArrowLeft,
   ArrowLeftRight,
   BookUser,
   Camera,
@@ -50,6 +49,7 @@ import CameraCapture from "@/components/shared/camera-capture"
 import ItemEditor from "@/components/split-bill/item-editor"
 import ContactPickerList from "@/components/shared/contact-picker-list"
 import BottomNavigation from "@/components/home/bottom-navigation"
+import ScreenHeader from "@/components/ui/screen-header"
 import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
 
 interface Participant {
@@ -307,16 +307,7 @@ function SplitBillView() {
   return (
     <div className="min-h-dvh bg-white font-sans max-w-lg mx-auto">
       <div className="px-5 py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => (creating ? setCreating(false) : router.push("/home"))}
-            aria-label="Back"
-            className="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-black tracking-tight">Split Bill</h1>
-        </div>
+        <ScreenHeader title="Split Bill" onBack={creating ? () => setCreating(false) : undefined} />
 
         {!creating && (
           <div className="flex p-1 bg-black/[0.04] rounded-2xl">
@@ -331,7 +322,7 @@ function SplitBillView() {
                 <Icon className="w-3.5 h-3.5" />
                 {label}
                 {id === "owed" && unpaid.length > 0 && (
-                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-purple-600 text-white text-[9px] leading-none">
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-black text-white text-[9px] leading-none">
                     {unpaid.length}
                   </span>
                 )}
@@ -710,7 +701,7 @@ function SplitBillView() {
                       >
                         <div
                           className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
-                            paid ? "bg-emerald-100 text-emerald-600" : "bg-purple-100 text-purple-600"
+                            paid ? "bg-emerald-50 text-positive" : "bg-[#F1EFEA] text-ink"
                           }`}
                         >
                           {paid ? <Check className="w-5 h-5" /> : <Receipt className="w-5 h-5" />}
@@ -755,7 +746,7 @@ function SplitBillView() {
                     onClick={() => router.push(`/split-bill/${b.id}`)}
                     className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-black/6 hover:bg-black/[0.02] transition-colors text-left"
                   >
-                    <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-2xl bg-[#F1EFEA] text-ink flex items-center justify-center shrink-0">
                       <Users2 className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 flex-1">

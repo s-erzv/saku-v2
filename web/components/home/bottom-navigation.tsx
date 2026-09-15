@@ -1,15 +1,16 @@
 "use client"
 
 import { useRouter, usePathname } from "next/navigation"
-import { Home, QrCode, Receipt, TrendingUp, User } from "lucide-react"
+import { ChartLineUp, ClockCounterClockwise, House, QrCode, UserCircle, type Icon } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { useAuth } from "@/hooks/useAuth"
 import PaySheet from "@/components/pay/pay-sheet"
+import { useWebShell } from "@/components/web/shell"
 
 type NavItem = {
   label: string
-  icon: React.ElementType
+  icon: Icon
   path: string
   /** False while the destination is still being rebuilt — renders dimmed and inert. */
   ready: boolean
@@ -29,15 +30,15 @@ type NavItem = {
 // `ready` marks the destinations that exist. A tab that navigates to a route that is not there
 // yet is worse than one that says "soon".
 const leftItems: NavItem[] = [
-  { label: "Home", icon: Home, path: "/home", ready: true },
-  { label: "History", icon: Receipt, path: "/transactions", ready: true },
+  { label: "Home", icon: House, path: "/home", ready: true },
+  { label: "History", icon: ClockCounterClockwise, path: "/transactions", ready: true },
 ]
 
 const rightItems: NavItem[] = [
-  { label: "Earn", icon: TrendingUp, path: "/staking", ready: true },
+  { label: "Earn", icon: ChartLineUp, path: "/staking", ready: true },
   {
     label: "Profile",
-    icon: User,
+    icon: UserCircle,
     path: "/profile",
     ready: true,
     alert: ({ recoveryReady }) => !recoveryReady,
@@ -45,6 +46,10 @@ const rightItems: NavItem[] = [
 ]
 
 const ALERT_RED = "#DC2626"
+
+/** Active states on the bar are drawn in the balance card's ink, with its gold as the marker. */
+const INK = "#14120E"
+const MUTED = "rgba(20,18,14,0.4)"
 
 function useRipple() {
   const [ripples, setRipples] = useState<{ x: number; y: number; id: number }[]>([])
@@ -100,21 +105,21 @@ function NavItemButton({ item }: { item: NavItem }) {
         style={{
           width: 42,
           height: 32,
-          backgroundColor: active ? "rgba(240,163,83,0.12)" : "transparent",
+          backgroundColor: active ? "rgba(20,18,14,0.06)" : "transparent",
           transform: active ? "scale(1.05)" : "scale(1)",
         }}
       >
         <item.icon
-          size={20}
-          strokeWidth={active ? 2.5 : 1.8}
-          className="transition-all duration-300"
-          style={{ color: active ? "var(--color-secondary, #F0A353)" : "rgba(0,0,0,0.35)" }}
+          size={22}
+          weight={active ? "duotone" : "regular"}
+          className="transition-colors duration-300"
+          style={{ color: active ? INK : MUTED }}
         />
 
         {/* The notification red everyone already reads as "deal with this". It is the loudest
             colour on the bar, which is the right weight for the one thing on it that can cost
-            someone their whole account — and it will not be confused with the orange the active
-            tab is painted in. The ring keeps it legible where it overlaps the icon's strokes. */}
+            someone their whole account — and it will not be confused with the ink the active
+            tab is drawn in. The ring keeps it legible where it overlaps the icon's strokes. */}
         {alerting && (
           <span
             aria-hidden
@@ -124,15 +129,15 @@ function NavItemButton({ item }: { item: NavItem }) {
         )}
         {active && (
           <span
-            className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[var(--color-secondary,#F0A353)]"
-            style={{ boxShadow: "0 0 6px rgba(240,163,83,0.8)" }}
+            className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gilt"
+            style={{ boxShadow: "0 0 6px rgba(221,186,124,0.9)" }}
           />
         )}
       </span>
 
       <span
         className="text-[10px] font-semibold tracking-wide transition-all duration-300"
-        style={{ color: active ? "var(--color-secondary, #F0A353)" : "rgba(0,0,0,0.4)" }}
+        style={{ color: active ? INK : MUTED }}
       >
         {item.label}
       </span>
@@ -164,7 +169,7 @@ function PayButton({ active, onOpen }: { active: boolean; onOpen: () => void }) 
             width: 72,
             height: 72,
             top: 0,
-            background: "radial-gradient(circle, rgba(255,211,98,0.25) 0%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(221,186,124,0.28) 0%, transparent 70%)",
             opacity: pressed ? 0.8 : 1,
           }}
         />
@@ -177,18 +182,19 @@ function PayButton({ active, onOpen }: { active: boolean; onOpen: () => void }) 
           style={{
             width: 62,
             height: 62,
-            background: "linear-gradient(135deg, #FFD364 0%, #F0A353 100%)",
+            // The balance card's ink with its gold on the rim: the one dark object on the bar.
+            background: "linear-gradient(150deg, #2B2721 0%, #15130F 52%, #0B0A08 100%)",
             boxShadow: pressed
-              ? "0 4px 12px rgba(240,163,83,0.4)"
-              : "0 8px 24px rgba(240,163,83,0.3), 0 2px 6px rgba(240,163,83,0.2)",
+              ? "0 4px 12px rgba(20,18,14,0.3), inset 0 0 0 1px rgba(221,186,124,0.35)"
+              : "0 10px 26px rgba(20,18,14,0.26), 0 2px 6px rgba(20,18,14,0.14), inset 0 0 0 1px rgba(221,186,124,0.35)",
             transform: pressed ? "scale(0.92)" : "scale(1)",
             WebkitTapHighlightColor: "transparent",
           }}
         >
           <QrCode
             size={26}
-            strokeWidth={2.5}
-            className="text-white transition-transform duration-200"
+            weight="duotone"
+            className="text-gilt transition-transform duration-200"
             style={{ transform: pressed ? "rotate(6deg) scale(0.95)" : "rotate(0deg) scale(1)" }}
           />
           <span className="absolute inset-0 rounded-full overflow-hidden pointer-events-none">
@@ -203,7 +209,7 @@ function PayButton({ active, onOpen }: { active: boolean; onOpen: () => void }) 
 
         <span
           className="mt-1 text-[10px] font-semibold tracking-wide transition-colors duration-300"
-          style={{ color: active ? "var(--color-secondary, #F0A353)" : "rgba(0,0,0,0.4)" }}
+          style={{ color: active ? INK : MUTED }}
         >
           Pay
         </span>
@@ -232,6 +238,15 @@ export default function BottomNavigation({ initialPayOpen = false }: BottomNavig
   const [payOpen, setPayOpen] = useState(initialPayOpen)
   const router = useRouter()
   const pathname = usePathname()
+  const shell = useWebShell()
+
+  // In the web wallet the tool rail replaces this bar and Pay is a tool in its panel. `/pay` still
+  // has to work as a link there, so it lands on Home with the Pay panel already open.
+  useEffect(() => {
+    if (!shell || !initialPayOpen) return
+    shell.openTool("pay", "/home")
+    router.replace("/home")
+  }, [shell, initialPayOpen, router])
 
   const closePay = () => {
     setPayOpen(false)
@@ -239,6 +254,8 @@ export default function BottomNavigation({ initialPayOpen = false }: BottomNavig
     // but a backdrop for it.
     if (pathname === "/pay") router.replace("/home")
   }
+
+  if (shell) return null
 
   return (
     <>

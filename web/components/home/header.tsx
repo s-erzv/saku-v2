@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Bell, LogOut } from "lucide-react"
+import { Bell, SignOut } from "@phosphor-icons/react"
 import { useAuth } from "@/hooks/useAuth"
 import { useNotifications } from "@/hooks/useNotifications"
 
@@ -52,9 +52,9 @@ export default function HomeHeader() {
                   </div>
                   <button
                     onClick={() => { setIsDropdownOpen(false); logout(); }}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    className="w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold text-negative hover:bg-negative/[0.06] rounded-lg transition-all"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <SignOut size={16} />
                     Sign Out
                   </button>
                 </div>
@@ -64,18 +64,18 @@ export default function HomeHeader() {
 
           <div className="flex flex-col min-w-0 justify-center">
             <p className="text-[length:clamp(11px,2.73vw,14px)] font-medium text-gray-500 leading-tight mb-0.5">Welcome,</p>
-            <p className="text-[length:clamp(15px,3.91vw,20px)] font-bold text-slate-900 truncate tracking-tight leading-tight">{label}</p>
+            <p className="text-[length:clamp(15px,3.91vw,20px)] font-semibold text-ink truncate tracking-tight leading-tight">{label}</p>
           </div>
         </div>
 
         <Link
           href="/notifications"
-          className="relative shrink-0 w-[clamp(34px,8.59vw,44px)] h-[clamp(34px,8.59vw,44px)] rounded-full bg-gray-100 flex items-center justify-center active:scale-95 transition-transform"
+          className="relative shrink-0 w-[clamp(34px,8.59vw,44px)] h-[clamp(34px,8.59vw,44px)] rounded-full bg-black/[0.04] flex items-center justify-center active:scale-95 transition-transform"
           aria-label="Notifications"
         >
-          <Bell className="w-[clamp(15px,3.91vw,20px)] h-[clamp(15px,3.91vw,20px)] text-slate-700" />
+          <Bell className="w-[clamp(16px,4.3vw,22px)] h-[clamp(16px,4.3vw,22px)] text-ink/80" />
           {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-negative ring-2 ring-white" />
           )}
         </Link>
       </div>

@@ -14,7 +14,7 @@
  * animations at once, none of which read as motion.
  */
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { CheckCircle, Copy, Eye, EyeOff, Loader2 } from "lucide-react"
 import { useLocalCurrency, formatLocal } from "@/hooks/useLocalCurrency"
 import { useAuth } from "@/hooks/useAuth"
@@ -26,12 +26,29 @@ import GradientWaves from "@/components/ui/gradient-waves"
 import BorderGlow from "@/components/ui/border-glow"
 import SandTexture from "@/components/ui/sand-texture"
 
-export default function BalanceCardSection() {
+interface BalanceCardSectionProps {
+  /** Replaces the outer spacing. The web wallet passes `h-full` so the card fills its grid cell. */
+  className?: string
+  /**
+   * Bump to re-read the balance. The web wallet does when its tool panel closes: there the card
+   * stays mounted beside a transfer, where the app would have navigated back and remounted it.
+   */
+  refreshKey?: number
+}
+
+export default function BalanceCardSection({
+  className = "pt-[clamp(8px,3.13vw,16px)]",
+  refreshKey = 0,
+}: BalanceCardSectionProps) {
   const { isAuthenticated, user, wallet, isLoading } = useAuth()
   const { address } = useMpcWallet()
   const walletAddress = address ?? wallet?.address ?? null
 
-  const { balances, isLoading: balancesLoading } = useTokenBalances(walletAddress)
+  const { balances, isLoading: balancesLoading, refresh } = useTokenBalances(walletAddress)
+
+  useEffect(() => {
+    if (refreshKey > 0) void refresh()
+  }, [refreshKey, refresh])
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [copied, setCopied] = useState(false)
 
@@ -66,7 +83,7 @@ export default function BalanceCardSection() {
   }
 
   return (
-    <div className="pt-[clamp(8px,3.13vw,16px)] animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
+    <div className={`${className} animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans`}>
       {/* React Bits' BorderGlow, in Saku's oranges, doing the job the plain `border-white/10`
           used to: it lights the edge nearest the pointer and sweeps once on mount. `animated` is
           left off — a rim that travels on its own would compete with the waves behind it, and
@@ -79,9 +96,9 @@ export default function BalanceCardSection() {
         glowIntensity={0.9}
         colors={["#F0A353", "#FFD362", "#C97F1D"]}
         fillOpacity={0.45}
-        className="w-full"
+        className="w-full h-full"
       >
-      <div className="relative w-full rounded-[2.5rem] p-[clamp(19px,5.47vw,28px)] text-white overflow-hidden transition-all duration-500 group">
+      <div className="relative w-full flex-1 rounded-[2.5rem] p-[clamp(19px,5.47vw,28px)] text-white overflow-hidden transition-all duration-500 group">
         <div className="absolute inset-0 bg-[#0A0A0A]" />
 
         {/* React Bits' GradientWaves, recoloured to Saku's orange. These numbers were arrived at

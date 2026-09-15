@@ -19,7 +19,6 @@ import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   ChevronDown,
@@ -38,6 +37,7 @@ import { PACKET_THEMES } from "@/lib/packet-themes"
 import { formatPacketAmount } from "@/lib/packet"
 import CreatePacketForm from "@/components/packet/create-packet-form"
 import BottomNavigation from "@/components/home/bottom-navigation"
+import ScreenHeader from "@/components/ui/screen-header"
 
 type Tab = "create" | "claim" | "mine"
 
@@ -71,7 +71,7 @@ function statusChip(packet: MyPacket) {
   if (packet.claimedCount >= packet.slots || Number(packet.remainingAmount) <= 0) {
     return { label: "All claimed", className: "bg-emerald-100 text-emerald-600" }
   }
-  return { label: "Open", className: "bg-orange-100 text-[#F0A353]" }
+  return { label: "Open", className: "bg-[#F4EBDD] text-gilt-deep" }
 }
 
 function PacketHub() {
@@ -111,25 +111,20 @@ function PacketHub() {
   return (
     <div className="min-h-dvh bg-white font-sans max-w-lg mx-auto">
       <div className="px-5 py-6 space-y-5">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/home")}
-            aria-label="Back"
-            className="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-black tracking-tight">Packet</h1>
-          {invited.length > 0 && tab !== "claim" && (
-            <button
-              onClick={() => setTab("claim")}
-              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 text-[#F0A353] text-[11px] font-bold"
-            >
-              <Gift className="w-3.5 h-3.5" />
-              {invited.length} waiting
-            </button>
-          )}
-        </div>
+        <ScreenHeader
+          title="Packet"
+          trailing={
+            invited.length > 0 && tab !== "claim" ? (
+              <button
+                onClick={() => setTab("claim")}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F4EBDD] text-gilt-deep text-[11px] font-bold"
+              >
+                <Gift className="w-3.5 h-3.5" />
+                {invited.length} waiting
+              </button>
+            ) : undefined
+          }
+        />
 
         <div className="flex p-1 bg-black/[0.04] rounded-2xl">
           {TABS.map(({ id, label, icon: Icon }) => (

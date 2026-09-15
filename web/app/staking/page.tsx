@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, CheckCircle, ExternalLink, Loader2, TrendingUp, Wallet } from "lucide-react"
+import { CheckCircle, ExternalLink, Loader2, TrendingUp, Wallet } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
@@ -21,6 +21,7 @@ import { useStaking, getStakingAddress } from "@/hooks/useStaking"
 import { useWarmApproval } from "@/hooks/useWarmApproval"
 import { CONTRACTS, explorerTxUrl } from "@/lib/config"
 import BottomNavigation from "@/components/home/bottom-navigation"
+import ScreenHeader from "@/components/ui/screen-header"
 
 type Tab = "stake" | "unstake"
 
@@ -83,16 +84,7 @@ export default function StakingPage() {
   return (
     <div className="min-h-dvh bg-white font-sans max-w-lg mx-auto">
       <div className="px-5 py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/home")}
-            aria-label="Back"
-            className="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-black tracking-tight">Earn</h1>
-        </div>
+        <ScreenHeader title="Earn" />
 
         {status !== "connected" ? (
           // Neutral, not amber. Warm is the brand on this screen now, and a notice wearing the
@@ -106,11 +98,10 @@ export default function StakingPage() {
           </div>
         ) : (
           <>
-            {/* Saku's own gradient, composed from the two brand tokens rather than a third
-                copy of the hex pair. It existed in `globals.css` and was reaching exactly one
-                surface, the bottom navigation, while this screen borrowed the dark slab from
-                Home's balance card — which made Earn read as a second balance screen instead of
-                its own thing. Dark now belongs to the balance and warm belongs to Saku.
+            {/* Champagne gold — the gilt on the balance card's rim, laid out as a surface. Earn
+                once borrowed the card's dark slab, which made it read as a second balance
+                screen, and then Saku's orange, which the rest of the app no longer wears. Dark
+                belongs to the balance; gold is what the balance earns.
 
                 Ink is black-with-opacity, the same idiom as the rest of the app. White on a
                 #FFD364 top stop is unreadable, so the whole card flips to dark ink.
@@ -122,9 +113,8 @@ export default function StakingPage() {
             <div
               className="rounded-[2rem] p-6 space-y-5"
               style={{
-                background:
-                  "linear-gradient(135deg, var(--color-saku-yellow) 0%, var(--color-saku-orange) 100%)",
-                boxShadow: "0 20px 44px rgba(240, 163, 83, 0.38)",
+                background: "linear-gradient(135deg, #F3E4C6 0%, #DDBA7C 100%)",
+                boxShadow: "0 20px 44px rgba(135, 101, 47, 0.2)",
               }}
             >
               <div className="flex items-start justify-between">
@@ -232,7 +222,7 @@ export default function StakingPage() {
                 <button
                   onClick={() => setAmount(String(available))}
                   disabled={busy || available <= 0}
-                  className="font-bold text-amber-700 hover:underline disabled:opacity-40"
+                  className="font-bold text-gilt-deep hover:underline disabled:opacity-40"
                 >
                   Max
                 </button>
@@ -275,7 +265,7 @@ export default function StakingPage() {
                 href={explorerTxUrl(lastTxHash)}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-700 hover:underline"
+                className="flex items-center justify-center gap-1.5 text-xs font-semibold text-gilt-deep hover:underline"
               >
                 View last transaction <ExternalLink className="w-3 h-3" />
               </a>

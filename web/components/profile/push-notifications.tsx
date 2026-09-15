@@ -43,7 +43,7 @@ function Switch({ on, busy, onToggle }: { on: boolean; busy: boolean; onToggle: 
       disabled={busy}
       onClick={onToggle}
       className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
-        on ? "bg-[#F0A353]" : "bg-black/15"
+        on ? "bg-black" : "bg-black/15"
       }`}
     >
       <span
@@ -79,7 +79,7 @@ export default function PushNotifications() {
     <div>
       <SettingsRow
         icon={enabled ? Bell : BellOff}
-        iconClassName={enabled ? "bg-orange-50 text-[#F0A353]" : "bg-black/[0.04] text-black/40"}
+        iconClassName={enabled ? "bg-[#F4EBDD] text-gilt-deep" : "bg-[#F1EFEA] text-black/40"}
         label="Push notifications"
         description="Money arriving and off-ramps completing, on this device."
         value={blocked ? "Unavailable" : undefined}

@@ -11,14 +11,14 @@
 
 import { useState } from "react"
 import { Loader2, Plus, Send, Trash2, UserPlus, Users } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useScreenNav } from "@/components/web/shell"
 import { useContacts } from "@/hooks/useContacts"
 import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
 import ProfileAvatar from "@/components/ui/profile-avatar"
 
 export default function ContactsList() {
-  const router = useRouter()
+  const { go } = useScreenNav()
   const { contacts, isLoading, error, addContact, removeContact } = useContacts()
 
   const [adding, setAdding] = useState(false)
@@ -141,7 +141,7 @@ export default function ContactsList() {
 
               {c.onSaku && (
                 <button
-                  onClick={() => router.push("/transfer")}
+                  onClick={() => go("/transfer")}
                   aria-label={`Send to ${c.label}`}
                   className="p-2.5 rounded-xl bg-black/[0.04] hover:bg-black hover:text-white transition-colors"
                 >

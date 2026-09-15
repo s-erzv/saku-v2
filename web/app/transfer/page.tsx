@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { parseUnits } from "ethers"
-import { ArrowLeft, ArrowLeftRight, ExternalLink, Loader2, Receipt, Smartphone, Wallet } from "lucide-react"
+import { ArrowLeftRight, ExternalLink, Loader2, Receipt, Smartphone, Wallet } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
@@ -28,11 +28,14 @@ import ReceiptModal from "@/components/transactions/receipt-modal"
 import { rememberRecentPhone } from "@/lib/recent-recipients"
 import { formatCurrency } from "@/lib/currency"
 import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
+import ScreenHeader from "@/components/ui/screen-header"
+import { useScreenNav } from "@/components/web/shell"
 
 type Step = "receiver" | "amount" | "review"
 
 export default function TransferPage() {
   const router = useRouter()
+  const { exit, go } = useScreenNav()
   const { user, wallet, isLoading, isAuthenticated } = useAuth()
   const { address, status } = useMpcWallet()
   const { phase, recipient, txHash, error, resolveRecipient, send, reset } = useTransfer()
@@ -115,7 +118,7 @@ export default function TransferPage() {
               href={explorerTxUrl(txHash)}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-700 hover:underline"
+              className="flex items-center justify-center gap-1.5 text-xs font-semibold text-gilt-deep hover:underline"
             >
               View on BscScan <ExternalLink className="w-3 h-3" />
             </a>
@@ -131,7 +134,7 @@ export default function TransferPage() {
               </button>
             )}
             <button
-              onClick={() => router.push("/home")}
+              onClick={exit}
               className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-all"
             >
               Back to Home
@@ -144,13 +147,11 @@ export default function TransferPage() {
     )
   }
 
+  // A step back inside the flow. Leaving the screen from its first step is the header's own job.
   const goBack = () => {
     if (step === "review") return setStep("amount")
-    if (step === "amount") {
-      reset()
-      return setStep("receiver")
-    }
-    router.push("/home")
+    reset()
+    setStep("receiver")
   }
 
   const validAmount =
@@ -159,12 +160,7 @@ export default function TransferPage() {
   return (
     <div className="min-h-dvh bg-white font-sans">
       <div className="max-w-lg mx-auto px-5 py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} aria-label="Back" className="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-xl font-black tracking-tight">Transfer</h1>
-        </div>
+        <ScreenHeader title="Transfer" onBack={step === "receiver" ? undefined : goBack} />
 
         {status !== "connected" ? (
           <div className="p-5 rounded-3xl bg-amber-50 border border-amber-200">
@@ -198,7 +194,7 @@ export default function TransferPage() {
                     <button
                       onClick={() => {
                         setDestination("ewallet")
-                        router.push("/offramp")
+                        go("/offramp")
                       }}
                       className={`flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-bold border transition-all ${
                         destination === "ewallet"
@@ -234,7 +230,7 @@ export default function TransferPage() {
                     <p className="text-sm font-medium text-red-600">{error}</p>
                     {/^That number is not on Saku/.test(error) && (
                       <button
-                        onClick={() => router.push("/offramp")}
+                        onClick={() => go("/offramp")}
                         className="w-full py-3 rounded-2xl border-2 border-black/12 text-sm font-bold hover:border-black/30 transition-colors"
                       >
                         Send to their e-wallet instead
@@ -273,7 +269,7 @@ export default function TransferPage() {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-black/45">Amount</label>
-                  <div className="flex items-center gap-2 border-2 border-transparent focus-within:border-black rounded-2xl bg-[#F9EFE5] px-4 py-3 transition-all">
+                  <div className="flex items-center gap-2 border-2 border-transparent focus-within:border-black rounded-2xl bg-[#F6F3EE] px-4 py-3 transition-all">
                     <input
                       inputMode="decimal"
                       value={amountField.displayValue}

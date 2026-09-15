@@ -25,6 +25,20 @@ import { sendWhatsApp } from '@/lib/whatsapp';
 /** One message for every rejection an attacker could learn something from. */
 const GENERIC_ERROR = 'Could not send your verification code. Please try again shortly.';
 
+/**
+ * What went wrong, for the server log only. The client keeps getting {@link GENERIC_ERROR}; the
+ * reason belongs where the operator can read it. Never the number — only what failed around it.
+ * Supabase errors are plain objects rather than `Error`s, so both shapes are handled.
+ */
+function describeError(error: unknown): string {
+  if (error instanceof Error) return `${error.name}: ${error.message}`;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const { message, code } = error as { message?: unknown; code?: unknown };
+    return `${String(message)}${code ? ` (code ${String(code)})` : ''}`;
+  }
+  return String(error);
+}
+
 export async function POST(request: Request) {
   let phoneHash: string;
   let normalized: string;
@@ -37,6 +51,7 @@ export async function POST(request: Request) {
     if (error instanceof InvalidPhoneNumberError) {
       return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 });
     }
+    console.error('[otp] rejected before anything was sent:', describeError(error));
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 400 });
   }
 
@@ -46,6 +61,7 @@ export async function POST(request: Request) {
   // is what protects a single number.
   const ipLimit = await checkRateLimit(clientKey(request, 'request-otp'), RATE_LIMITS.IP_BASED);
   if (!ipLimit.allowed) {
+    console.warn('[otp] rejected: IP rate limit reached');
     await logAuthEvent(request, { type: 'otp_request_rate_limited', phoneHash });
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 429 });
   }
@@ -109,6 +125,7 @@ export async function POST(request: Request) {
       'otp'
     );
     if (outcome !== 'sent') {
+      console.error('[otp] WhatsApp gateway did not send, outcome:', outcome);
       // Do not leave a live code behind for a message that never arrived — it would burn one of
       // the user's three attempts in the window and stay guessable for five minutes.
       await supabase.from('otp_challenges').delete().eq('id', challenge.id);
@@ -131,7 +148,8 @@ export async function POST(request: Request) {
 
     // Deliberately says nothing about whether this number is already registered.
     return NextResponse.json({ success: true, message: 'Verification code sent' });
-  } catch {
+  } catch (error) {
+    console.error('[otp] request failed:', describeError(error));
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 500 });
   }
 }
