@@ -4,6 +4,14 @@ docs/
 */docs/
 !**/README.md
 
+# The long-form trust model. Same reasoning as docs/ above: it describes decisions rather than
+# code, so it drifts, and the committed summary in README.md is the one outsiders should read.
+ARCHITECTURE.md
+
+# Research and claim-verification notes. Same reasoning: a snapshot of what the code said on
+# one day, which stops being true the moment the code moves.
+riset.md
+
 # Assistant and editor scratch
 .claude/
 .cursor/

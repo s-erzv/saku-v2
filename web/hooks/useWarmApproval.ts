@@ -46,15 +46,16 @@ const key = (owner: string, spender: string) => `${owner.toLowerCase()}:${spende
 const WARM_WAIT_TIMEOUT_MS = 8_000;
 
 /** Await a warm approval already running for this pair, if any. Never throws, never hangs. */
-export async function awaitWarmApproval(owner: string | null, spender: string): Promise<void> {
-  if (!owner) return;
+export async function awaitWarmApproval(owner: string | null, spender: string): Promise<boolean> {
+  if (!owner) return false;
   const pending = inFlight.get(key(owner, spender));
-  if (!pending) return;
+  if (!pending) return false;
 
   await Promise.race([
     pending.catch(() => {}),
     new Promise<void>((resolve) => setTimeout(resolve, WARM_WAIT_TIMEOUT_MS)),
   ]);
+  return true;
 }
 
 export function useWarmApproval(spender: string | undefined | null) {

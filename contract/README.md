@@ -7,8 +7,8 @@ spec — this repo implements PRD Section 5 ("Backend Logic Flow").
 > **Custody.** Saku is not a non-custodial wallet. User keys are held by a signing provider and
 > the authority to use them lives on Saku's server, bounded by a transaction policy, a daily cap
 > and an audit trail rather than by anything a user holds. The escrow below is the one place where
-> on-chain rules do that work instead. Both are written out in
-> [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+> on-chain rules do that work instead. Both are written out under "Custody, stated first" in
+> [`../README.md`](../README.md).
 
 > The v1-era wallet contracts (`SakuRegistry`, `USDCStaking`, `LockD`) have been removed — v2
 > is scoped to the offramp escrow flow below. The web app's hooks/config that referenced them
