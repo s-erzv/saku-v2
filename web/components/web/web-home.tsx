@@ -111,11 +111,11 @@ function ServiceCard({
     <button
       onClick={onClick}
       aria-expanded={expanded}
-      className={`flex flex-col items-start gap-5 rounded-[20px] border bg-white p-4 text-left transition-colors ${
-        expanded ? "border-black/30" : "border-black/[0.06] hover:border-black/15"
+      className={`flex cursor-pointer flex-col items-start gap-5 rounded-[20px] border bg-white p-4 text-left transition-[transform,border-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgb(20_18_14/0.07)] active:translate-y-0 active:scale-[0.99] ${
+        expanded ? "border-black/30 shadow-[0_10px_28px_rgb(20_18_14/0.07)]" : "border-black/[0.06] hover:border-black/15"
       }`}
     >
-      <IconTile icon={icon} />
+      <IconTile icon={icon} box="h-11 w-auto" />
       <span className="block">
         <span className="block text-[15px] font-medium tracking-tight">{label}</span>
         <span className="mt-0.5 block text-[13px] text-black/50">{description}</span>
