@@ -35,9 +35,13 @@ export interface ResolvedRecipient {
   phoneHash: string;
 }
 
+export type RecipientLookup =
+  | { contactId: string }
+  | { phone: string; countryCode: string };
+
 export type TransferPhase =
   | 'idle'
-  /** Looking the number up. */
+  /** Looking the number or saved contact up. */
   | 'resolving'
   /** Recipient known, waiting for the user to confirm. */
   | 'ready'
@@ -63,7 +67,7 @@ export function useTransfer() {
   }, []);
 
   const resolveRecipient = useCallback(
-    async (phone: string, countryCode: string) => {
+    async (lookup: RecipientLookup) => {
       setPhase('resolving');
       setError(null);
       setRecipient(null);
@@ -72,7 +76,7 @@ export function useTransfer() {
         const res = await fetch('/api/transfer/resolve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, countryCode }),
+          body: JSON.stringify(lookup),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Could not look up that number');
@@ -81,8 +85,8 @@ export function useTransfer() {
           setPhase('failed');
           setError(
             data.reason === 'no_wallet'
-              ? 'That number is registered but its wallet is not active yet.'
-              : 'That number is not on Saku yet.'
+              ? 'That recipient is registered but their wallet is not active yet.'
+              : `That ${'contactId' in lookup ? 'contact' : 'number'} is not on Saku yet.`
           );
           return null;
         }
@@ -102,7 +106,7 @@ export function useTransfer() {
         return null;
       }
     },
-    [isAuthenticated]
+    []
   );
 
   /** Sign and send. `amount` is human-readable USDC, e.g. "1.25". */

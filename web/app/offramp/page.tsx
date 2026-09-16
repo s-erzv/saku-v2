@@ -456,7 +456,10 @@ export default function OfframpPage() {
                   <label className="text-[12px] font-medium text-black/45">
                     Recipient number
                   </label>
-                  <ContactPicker onPick={(cc, ph) => { setCountryCode(cc); setPhone(ph) }} />
+                  <ContactPicker
+                    onPick={(cc, ph) => { setCountryCode(cc); setPhone(ph) }}
+                    defaultCountryCode={countryCode}
+                  />
                   <div className="relative">
                     <CountryCodeDropdown onSelect={setCountryCode} selectedCode={countryCode} />
                     <input

@@ -30,6 +30,8 @@ import { formatCurrency } from "@/lib/currency"
 import { useRecipientCountryCode } from "@/hooks/useRecipientCountryCode"
 import ScreenHeader from "@/components/ui/screen-header"
 import { useScreenNav } from "@/components/web/shell"
+import type { Contact } from "@/hooks/useContacts"
+import { splitContactPhone } from "@/lib/split-contact-phone"
 
 type Step = "receiver" | "amount" | "review"
 
@@ -47,6 +49,7 @@ export default function TransferPage() {
   const [destination, setDestination] = useState<"saku" | "ewallet">("saku")
   const [countryCode, setCountryCode] = useRecipientCountryCode()
   const [phone, setPhone] = useState("")
+  const [selectedContactLabel, setSelectedContactLabel] = useState<string | null>(null)
   const amountField = useCurrencyToggleAmount(isAuthenticated)
   const amount = amountField.amountUsdc
   const [showReceipt, setShowReceipt] = useState(false)
@@ -65,6 +68,31 @@ export default function TransferPage() {
     if (phone.length >= 8) rememberRecentPhone(user?.phone_hash, { countryCode, phone })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, refresh])
+
+  const pickPhoneContact = async (nextCountryCode: string, nextPhone: string) => {
+    setSelectedContactLabel(null)
+    setCountryCode(nextCountryCode)
+    setPhone(nextPhone)
+    const found = await resolveRecipient({
+      phone: nextPhone,
+      countryCode: nextCountryCode.replace("+", ""),
+    })
+    if (found) setStep("amount")
+  }
+
+  const pickSavedContact = async (contact: Contact) => {
+    setSelectedContactLabel(contact.label)
+    if (contact.phone) {
+      const next = splitContactPhone(contact.phone)
+      setCountryCode(next.countryCode)
+      setPhone(next.phone)
+    } else {
+      setPhone("")
+    }
+
+    const found = await resolveRecipient({ contactId: contact.id })
+    if (found) setStep("amount")
+  }
 
   if (isLoading) {
     return (
@@ -90,7 +118,7 @@ export default function TransferPage() {
           toAddress: recipient?.address ?? null,
           // Already resolved by `useTransfer` — no reason to make the receipt wait for a
           // /api/transactions round-trip to learn the name it was just sent to.
-          counterpartyName: recipient?.displayName ?? null,
+          counterpartyName: selectedContactLabel ?? recipient?.displayName ?? null,
           counterpartyIsUser: true,
           context: null,
           feeAmount: parseUnits(
@@ -109,7 +137,7 @@ export default function TransferPage() {
           <div className="space-y-1">
             <h1 className="text-2xl font-black tracking-tight">Transfer sent</h1>
             <p className="text-sm text-black/45">
-              {amount} USDC to {recipient?.displayName || `${countryCode}${phone}`}
+              {amount} USDC to {selectedContactLabel || recipient?.displayName || `${countryCode}${phone}`}
             </p>
           </div>
 
@@ -151,6 +179,7 @@ export default function TransferPage() {
   const goBack = () => {
     if (step === "review") return setStep("amount")
     reset()
+    setSelectedContactLabel(null)
     setStep("receiver")
   }
 
@@ -211,14 +240,28 @@ export default function TransferPage() {
                   <label className="text-[12px] font-medium text-black/45">
                     Recipient number
                   </label>
-                  <ContactPicker onPick={(cc, ph) => { setCountryCode(cc); setPhone(ph) }} />
+                  <ContactPicker
+                    onPick={pickPhoneContact}
+                    onPickContact={pickSavedContact}
+                    defaultCountryCode={countryCode}
+                    disabled={phase === "resolving"}
+                  />
+                  {selectedContactLabel && (
+                    <div className="flex items-center justify-between rounded-xl bg-black/[0.04] px-3 py-2 text-xs">
+                      <span className="text-black/40">Selected contact</span>
+                      <span className="font-bold">{selectedContactLabel}</span>
+                    </div>
+                  )}
                   <div className="relative">
                     <CountryCodeDropdown onSelect={setCountryCode} selectedCode={countryCode} />
                     <input
                       type="tel"
                       value={phone}
                       autoFocus
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                      onChange={(e) => {
+                        setSelectedContactLabel(null)
+                        setPhone(e.target.value.replace(/\D/g, ""))
+                      }}
                       placeholder="812 3456 7890"
                       className="w-full pl-28 pr-4 py-4 bg-[#FAFAFA] border-2 border-transparent rounded-2xl text-lg font-bold focus:border-black outline-none transition-all"
                     />
@@ -228,7 +271,7 @@ export default function TransferPage() {
                 {error && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-red-600">{error}</p>
-                    {/^That number is not on Saku/.test(error) && (
+                    {phone.length >= 8 && /not on Saku/.test(error) && (
                       <button
                         onClick={() => go("/offramp")}
                         className="w-full py-3 rounded-2xl border-2 border-black/12 text-sm font-bold hover:border-black/30 transition-colors"
@@ -241,7 +284,10 @@ export default function TransferPage() {
 
                 <button
                   onClick={async () => {
-                    const found = await resolveRecipient(phone, countryCode.replace("+", ""))
+                    const found = await resolveRecipient({
+                      phone,
+                      countryCode: countryCode.replace("+", ""),
+                    })
                     if (found) setStep("amount")
                   }}
                   disabled={phone.length < 8 || phase === "resolving"}
@@ -258,9 +304,11 @@ export default function TransferPage() {
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#FAFAFA]">
                   {/* Their own picture. Seeing the face you expect is the cheapest check there
                       is against a mistyped digit sending money to a stranger. */}
-                  <ProfileAvatar src={recipient.avatarUrl} name={recipient.displayName} className="w-10 h-10" textClassName="text-xs" />
+                  <ProfileAvatar src={recipient.avatarUrl} name={selectedContactLabel || recipient.displayName} className="w-10 h-10" textClassName="text-xs" />
                   <div className="min-w-0">
-                    <p className="text-sm font-bold truncate">{recipient.displayName || "Saku user"}</p>
+                    <p className="text-sm font-bold truncate">
+                      {selectedContactLabel || recipient.displayName || "Saku user"}
+                    </p>
                     <p className="text-xs text-black/45 font-mono truncate">
                       {recipient.address.slice(0, 6)}…{recipient.address.slice(-4)}
                     </p>
@@ -323,14 +371,18 @@ export default function TransferPage() {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-black/45">To</span>
                     <span className="flex items-center gap-2 min-w-0">
-                      <ProfileAvatar src={recipient.avatarUrl} name={recipient.displayName} className="w-6 h-6" textClassName="text-[9px]" />
-                      <span className="font-bold truncate">{recipient.displayName || "Saku user"}</span>
+                      <ProfileAvatar src={recipient.avatarUrl} name={selectedContactLabel || recipient.displayName} className="w-6 h-6" textClassName="text-[9px]" />
+                      <span className="font-bold truncate">
+                        {selectedContactLabel || recipient.displayName || "Saku user"}
+                      </span>
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-black/45">Number</span>
-                    <span className="font-bold">{countryCode}{phone}</span>
-                  </div>
+                  {phone && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-black/45">Number</span>
+                      <span className="font-bold">{countryCode}{phone}</span>
+                    </div>
+                  )}
                   {/* Shown before signing, not only on the receipt. A fee the user first meets
                       after paying is a fee designed not to be noticed. */}
                   <div className="pt-3 mt-1 border-t border-black/5 space-y-2">
