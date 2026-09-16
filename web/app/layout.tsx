@@ -4,6 +4,7 @@ import { Caveat, Geist, Geist_Mono, Space_Mono } from "next/font/google"
 import { AuthProvider } from "@/hooks/useAuth"
 import { MpcWalletProvider } from "@/hooks/useMpcWallet"
 import AppFrame from "@/components/web/web-frame"
+import InstallAppProvider from "@/components/install/install-app-provider"
 import MiniAppReady from "./miniapp-ready"
 import ServiceWorkerRegister from "./service-worker-register"
 import "./globals.css"
@@ -123,11 +124,13 @@ export default function RootLayout({
       <body className="min-h-dvh w-full font-sans antialiased overflow-x-hidden">
         <MiniAppReady />
         <ServiceWorkerRegister />
-        <AuthProvider>
-          <MpcWalletProvider>
-            <AppFrame>{children}</AppFrame>
-          </MpcWalletProvider>
-        </AuthProvider>
+        <InstallAppProvider>
+          <AuthProvider>
+            <MpcWalletProvider>
+              <AppFrame>{children}</AppFrame>
+            </MpcWalletProvider>
+          </AuthProvider>
+        </InstallAppProvider>
       </body>
     </html>
   )

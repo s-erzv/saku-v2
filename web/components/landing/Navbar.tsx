@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { Download } from "lucide-react";
+import { useInstallApp } from "@/components/install/install-app-provider";
 
 interface NavbarProps {
   className?: string;
@@ -7,6 +9,7 @@ interface NavbarProps {
 
 export default function Navbar({ className = "" }: NavbarProps) {
   const [state, setState] = useState(false);
+  const { canInstall, requestInstall } = useInstallApp();
 
   const navigation = [
     { title: "Home", path: "/" },
@@ -109,6 +112,22 @@ export default function Navbar({ className = "" }: NavbarProps) {
               </li>
             ))}
             
+            {canInstall && (
+              <li className="md:hidden w-full pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setState(false);
+                    void requestInstall();
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-1 py-2 text-left font-medium"
+                >
+                  <Download className="h-4 w-4" />
+                  Install app
+                </button>
+              </li>
+            )}
+
             {/* Mobile Only Sign In Button */}
             <li className="md:hidden w-full pt-2">
               <a

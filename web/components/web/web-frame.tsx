@@ -36,6 +36,7 @@ import {
   CaretRight,
   Check,
   Copy,
+  DownloadSimple,
   QrCode,
   ShieldCheck,
   SignOut,
@@ -54,6 +55,7 @@ import IconTile from "@/components/ui/icon-tile"
 import ProfileAvatar from "@/components/ui/profile-avatar"
 import { useAppMode } from "@/components/web/app-mode"
 import ReceiveDialog from "@/components/web/receive-dialog"
+import { useInstallApp } from "@/components/install/install-app-provider"
 import {
   InPanelContext,
   RECEIVE,
@@ -202,6 +204,7 @@ function WebNavbar({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const { canInstall, requestInstall } = useInstallApp()
 
   const links = NAV.map((item) => {
     const active = isUnder(pathname, item.href)
@@ -210,7 +213,7 @@ function WebNavbar({
         key={item.href}
         href={item.href}
         aria-current={active ? "page" : undefined}
-        className={`shrink-0 rounded-full px-4 py-2 text-[14px] font-medium transition-colors ${
+        className={`shrink-0 rounded-full px-3 py-2 text-[14px] font-medium transition-colors lg:px-4 ${
           active ? "bg-black/[0.055] text-ink" : "text-black/55 hover:text-ink"
         }`}
       >
@@ -251,8 +254,18 @@ function WebNavbar({
         </div>
       </div>
 
-      <nav aria-label="Pages" className="flex max-w-sm gap-1 overflow-hidden px-4 pb-2.5 sm:px-6 lg:hidden">
+      <nav aria-label="Pages" className="flex max-w-full gap-1 overflow-x-auto px-4 pb-2.5 sm:px-6 lg:hidden">
         {links}
+        {canInstall && (
+          <button
+            type="button"
+            onClick={() => void requestInstall()}
+            className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[14px] font-medium text-black/55 transition-colors hover:bg-black/[0.04] hover:text-ink"
+          >
+            <DownloadSimple size={16} />
+            Install app
+          </button>
+        )}
       </nav>
     </header>
   )

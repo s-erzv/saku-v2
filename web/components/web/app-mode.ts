@@ -25,6 +25,16 @@ export const WEB_HOME = "/home"
 
 const VIEW_KEY = "saku_view"
 
+/** Actual installed/native host state, independent from a temporary `?view=app` override. */
+export function isInstalledAppSurface(): boolean {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    "ReactNativeWebView" in window
+  )
+}
+
 function readMode(): AppMode {
   // The app URL also carries app context through sign-in and shared feature routes.
   if (window.location.pathname === APP_HOME || window.location.pathname.startsWith("/app/")) {
@@ -32,14 +42,8 @@ function readMode(): AppMode {
     return "app"
   }
 
-  const installed =
-    window.matchMedia("(display-mode: standalone)").matches ||
-    window.matchMedia("(display-mode: fullscreen)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
   // Farcaster and Base open mini-apps in a native webview, which is an app surface, not a tab.
-  const miniAppHost = "ReactNativeWebView" in window
-
-  if (installed || miniAppHost) {
+  if (isInstalledAppSurface()) {
     try { sessionStorage.setItem(VIEW_KEY, "app") } catch { /* Storage may be blocked. */ }
     return "app"
   }
