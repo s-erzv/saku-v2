@@ -49,6 +49,7 @@ import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useNotifications } from "@/hooks/useNotifications"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
 import { CONTRACTS, NETWORK_CONFIG, explorerAddressUrl } from "@/lib/config"
+import NotificationList from "@/components/notifications/notification-list"
 import IconTile from "@/components/ui/icon-tile"
 import ProfileAvatar from "@/components/ui/profile-avatar"
 import { useAppMode } from "@/components/web/app-mode"
@@ -199,18 +200,8 @@ function WebNavbar({
   walletAddress: string | null
   version: number
 }) {
-  const { unreadCount, refresh } = useNotifications()
   const [menuOpen, setMenuOpen] = useState(false)
-
-  // The frame outlives every page, so nothing remounts to re-read the count the way the app's
-  // header does on each screen. Re-reading on navigation keeps the dot honest after Notifications
-  // marks everything read. The first path is skipped; the hook has just read it.
-  const lastPath = useRef(pathname)
-  useEffect(() => {
-    if (lastPath.current === pathname) return
-    lastPath.current = pathname
-    void refresh()
-  }, [pathname, refresh])
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
 
   const links = NAV.map((item) => {
     const active = isUnder(pathname, item.href)
@@ -231,7 +222,7 @@ function WebNavbar({
   return (
     // Solid, not frosted: a backdrop filter here would become the containing block for the account
     // menu's full-screen click-catcher and shrink it to the height of the bar.
-    <header className={`relative border-b border-black/[0.06] bg-white pt-[env(safe-area-inset-top)] lg:sticky lg:top-0 lg:pt-0 ${menuOpen ? "z-50" : "z-30"}`}>
+    <header className={`relative border-b border-black/[0.06] bg-white pt-[env(safe-area-inset-top)] lg:sticky lg:top-0 lg:pt-0 ${menuOpen || notificationsOpen ? "z-50" : "z-30"}`}>
       <div className="flex h-16 items-center gap-2 px-4 sm:px-6">
         <Link href="/home" className="mr-2 flex shrink-0 items-center gap-2.5 lg:mr-6">
           <img src="/icons/saku-mark.png" alt="" className="h-9 w-9" />
@@ -248,18 +239,15 @@ function WebNavbar({
             pathname={pathname}
             version={version}
             open={menuOpen}
-            onOpenChange={setMenuOpen}
+            onOpenChange={(open) => {
+              setMenuOpen(open)
+              if (open) setNotificationsOpen(false)
+            }}
           />
-          <Link
-            href="/notifications"
-            aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
-            className="relative flex h-10 w-10 items-center justify-center rounded-full text-black/65 transition-colors hover:bg-black/[0.05] hover:text-ink"
-          >
-            <Bell size={21} />
-            {unreadCount > 0 && (
-              <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-negative ring-2 ring-white" />
-            )}
-          </Link>
+          <NotificationMenu open={notificationsOpen} onOpenChange={(open) => {
+            setNotificationsOpen(open)
+            if (open) setMenuOpen(false)
+          }} />
         </div>
       </div>
 
@@ -267,6 +255,69 @@ function WebNavbar({
         {links}
       </nav>
     </header>
+  )
+}
+
+function NotificationMenu({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { notifications, unreadCount, isLoading, refresh, markAsRead } = useNotifications(20)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onOpenChange(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, onOpenChange])
+
+  const toggle = () => {
+    const next = !open
+    onOpenChange(next)
+    // Refresh first so a notification that arrived while this tab was open is included in the
+    // same read receipt, rather than being overwritten by an older in-flight response.
+    if (next) void refresh().then(() => markAsRead())
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+        aria-expanded={open}
+        aria-controls="notification-menu"
+        className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-black/65 transition-colors hover:bg-black/[0.05] hover:text-ink"
+      >
+        <Bell size={21} />
+        {unreadCount > 0 && (
+          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-negative ring-2 ring-white" />
+        )}
+      </button>
+
+      {open && (
+        <>
+          <button type="button" aria-hidden tabIndex={-1} onClick={() => onOpenChange(false)} className="fixed inset-0 cursor-default" />
+          <section
+            id="notification-menu"
+            role="dialog"
+            aria-label="Notifications"
+            className="absolute right-0 top-[calc(100%+10px)] flex max-h-[50dvh] w-[min(380px,calc(100vw-2rem))] origin-top-right flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_24px_64px_rgb(20_18_14/0.18)] ring-1 ring-black/[0.06] animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between border-b border-black/[0.06] px-4 py-3.5">
+              <h2 className="text-[15px] font-semibold tracking-tight">Notifications</h2>
+              {unreadCount > 0 && <span className="text-[11px] font-medium text-[#9A6718]">{unreadCount} new</span>}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+              <NotificationList
+                notifications={notifications}
+                isLoading={isLoading}
+                onSelect={() => onOpenChange(false)}
+              />
+            </div>
+          </section>
+        </>
+      )}
+    </div>
   )
 }
 
