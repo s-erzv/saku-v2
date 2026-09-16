@@ -17,7 +17,7 @@ import { Contract, formatUnits, parseUnits } from 'ethers';
 import { useAuth } from './useAuth';
 import { useMpcWallet } from './useMpcWallet';
 import { CONTRACTS } from '@/lib/config';
-import { chargePlatformFee, getTreasuryAddress } from '@/lib/platform-fee';
+import { chargeFeeAndAttach, getTreasuryAddress } from '@/lib/platform-fee';
 import { transferFee } from '@/lib/fees';
 
 const ERC20_ABI = [
@@ -139,38 +139,51 @@ export function useTransfer() {
         const tx = await usdc.transfer(to, value);
         setTxHash(tx.hash);
 
-        // The user's money has moved and the chain agrees. Everything after this point is Saku's
-        // own bookkeeping — collecting the platform fee and mirroring the transfer into the
-        // history cache — and none of it changes what the user is waiting to be told.
-        // We return a promise so the UI can attach a toast.promise to it, without making the user stare at a spinner.
+        // The receipt screen is proof, not an optimistic "sent" toast, so it appears only after
+        // the chain confirms this hash. Fee collection and history are Saku bookkeeping and stay
+        // behind that screen instead of making someone wait to see proof of a payment that has
+        // already settled.
         const confirmation = (async () => {
-          await tx.wait();
+          try {
+            await tx.wait();
+            setPhase('done');
 
-          const feeTxHash = await chargePlatformFee({
-            signer,
-            usdcAddress: CONTRACTS.USDC,
-            treasury,
-            feeUnits: fee,
-          });
+            void (async () => {
+              // Recorded after confirmation: the route verifies the receipt, so submitting
+              // earlier would just 404 on a transaction the node has not mined yet. It goes
+              // first so the fee-hash attachment cannot beat the insert in a race.
+              const recorded = await fetch('/api/transfer/record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ txHash: tx.hash }),
+                // The request has to outlive the screen that started it. A send ends on a
+                // receipt the user reads and then navigates away from.
+                keepalive: true,
+              }).catch(() => null);
 
-          // Recorded after confirmation: the route verifies the receipt, so submitting earlier
-          // would just 404 on a transaction the node has not mined yet.
-          await fetch('/api/transfer/record', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
-            // The request has to outlive the screen that started it. A send ends on a receipt the
-            // user reads and then navigates away from, and an in-flight fetch does not survive
-            // that on its own.
-            keepalive: true,
-          }).catch(() => {
-            /* History is a cache. The transfer already happened. */
-          });
+              if (recorded?.ok) {
+                chargeFeeAndAttach({
+                  signer,
+                  usdcAddress: CONTRACTS.USDC,
+                  treasury,
+                  feeUnits: fee,
+                  txHash: tx.hash,
+                });
+              }
+            })();
 
-          return tx.hash;
+            return tx.hash;
+          } catch (err) {
+            setPhase('failed');
+            const message = err instanceof Error ? err.message : 'Transaction failed on chain';
+            setError(/insufficient funds/i.test(message) ? 'Not enough tBNB for gas.' : message);
+            // The visible error is state-driven. Do not rethrow from this detached confirmation
+            // promise: once a transaction has broadcast, the click handler is no longer awaiting
+            // it and a rejection would become an unhandled browser error.
+            return null;
+          }
         })();
 
-        setPhase('done');
         return { txHash: tx.hash, confirmation };
       } catch (err) {
         setPhase('failed');

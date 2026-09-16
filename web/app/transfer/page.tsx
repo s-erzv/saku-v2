@@ -358,7 +358,9 @@ export default function TransferPage() {
                 {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 
                 <button
-                  onClick={() => send(recipient.address, amount)}
+                  onClick={() => {
+                    void send(recipient.address, amount)
+                  }}
                   disabled={phase === "sending"}
                   className="w-full py-4 bg-black text-white rounded-2xl font-bold shadow-lg disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
