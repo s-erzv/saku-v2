@@ -3,81 +3,30 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
-import HomeHeader from "@/components/home/header"
-import BalanceCardSection from "@/components/home/balance-card-section"
-import QuickActions from "@/components/home/quick-actions"
-import RecentTransactions from "@/components/home/recent-transactions"
-import BottomNavigation from "@/components/home/bottom-navigation"
-import WalletSetup from "@/components/home/wallet-setup"
-import WaitingPackets from "@/components/home/waiting-packets"
-import BillsToPay from "@/components/home/bills-to-pay"
-import GuardianRequests from "@/components/home/guardian-requests"
-import OnboardingSlider from "@/components/home/onboarding-slider"
-import RecoveryGate from "@/components/home/recovery-gate"
+import { APP_HOME, useAppMode } from "@/components/web/app-mode"
 import WebHome from "@/components/web/web-home"
-import { useWebShell } from "@/components/web/shell"
 
+/** Browser wallet Home. The installed app has its own route at /app/home. */
 export default function HomePage() {
   const router = useRouter()
   const { user, isLoading, isAuthenticated } = useAuth()
-  const shell = useWebShell()
+  const mode = useAppMode()
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) router.replace("/get-started")
-  }, [isLoading, isAuthenticated, router])
+    if (isLoading || mode === null) return
+    if (mode === "app") router.replace(APP_HOME)
+    else if (!isAuthenticated) router.replace("/get-started?view=web")
+  }, [isLoading, isAuthenticated, mode, router])
 
-  if (isLoading) {
+  if (isLoading || mode === null) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center font-sans">
+      <div className="flex min-h-dvh items-center justify-center bg-white font-sans">
         <video className="w-50" src="/logo.webm" autoPlay muted loop playsInline />
       </div>
     )
   }
 
-  if (!user || !isAuthenticated) return null
+  if (mode !== "web" || !user || !isAuthenticated) return null
 
-  // In a browser tab, as opposed to the installed app, Home is the web wallet's dashboard. It is
-  // built from the same components as the screen below; see `components/web/`.
-  if (shell) return <WebHome />
-
-  return (
-    <div className="min-h-dvh bg-white font-sans relative max-w-lg mx-auto">
-      {/* Renders nothing except on the first visit after signing up — it reads the flags
-          `get-started` sets and gates itself. */}
-      <OnboardingSlider />
-
-      {/* Renders nothing. Waits for the tour above to finish, then sends anyone without a way
-          back to `/security/setup` — once a week at most, and never once recovery is in place. */}
-      <RecoveryGate />
-
-      <HomeHeader />
-
-      <main className="max-w-lg mx-auto px-[clamp(12px,3.13vw,16px)] space-y-[clamp(16px,4.69vw,24px)] py-2 relative z-10">
-        <BalanceCardSection />
-
-        {/* Only renders while the wallet is still being derived, or if that failed. Once the
-            MPC login lands it returns null and stays out of the way. */}
-        <WalletSetup />
-
-        {/* Above the quick actions, unlike the cards below: someone else's account is waiting on
-            this answer. Renders nothing unless a guardian request is actually open. */}
-        <GuardianRequests />
-
-        <QuickActions />
-
-        {/* Renders nothing unless a packet is actually addressed to this number — a private
-            packet has no link to arrive by, so this is the only place its recipient meets it. */}
-        <WaitingPackets />
-
-        {/* Same reasoning as WaitingPackets: a bill is addressed to your number and arrives with
-            no link, so it has to be findable without going looking. Renders nothing when
-            everything is settled. */}
-        <BillsToPay />
-
-        <RecentTransactions />
-      </main>
-
-      <BottomNavigation />
-    </div>
-  )
+  return <WebHome />
 }

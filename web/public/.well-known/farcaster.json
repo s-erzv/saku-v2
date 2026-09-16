@@ -8,7 +8,7 @@
     "version": "1",
     "name": "Saku",
     "description": "Send and receive crypto with just a phone number.",
-    "homeUrl": "https://sakku.netlify.app",
+    "homeUrl": "https://sakku.netlify.app/app/home",
     "iconUrl": "https://sakku.netlify.app/logo.png",
     "primaryCategory": "finance",
     "splashBackgroundColor": "#000000",

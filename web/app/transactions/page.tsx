@@ -22,6 +22,7 @@ import ReceiptModal from "@/components/transactions/receipt-modal"
 import IconTile from "@/components/ui/icon-tile"
 import WebActivity from "@/components/web/web-activity"
 import { useWebShell } from "@/components/web/shell"
+import { homeHref } from "@/components/web/app-mode"
 
 const USDC_DECIMALS = 6
 
@@ -103,7 +104,7 @@ function TransactionsView() {
       <div className="px-5 py-6 space-y-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push(homeHref())}
             aria-label="Back"
             className="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
           >

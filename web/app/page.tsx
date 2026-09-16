@@ -81,7 +81,7 @@ export default function Home() {
         </div>
 
         {/* Hero Section */}
-        <section className="relative flex min-h-[94svh] w-full flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-40 text-center md:pt-44">
+        <section className="relative flex min-h-[94dvh] w-full flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-40 text-center md:pt-44">
           <div
             className="pointer-events-none absolute inset-0"
             style={{ maskImage: HERO_FADE, WebkitMaskImage: HERO_FADE }}

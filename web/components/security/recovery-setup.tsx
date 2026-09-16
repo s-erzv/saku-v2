@@ -33,6 +33,7 @@ import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 import countryCodes from "@/lib/country-codes.json"
 import { snooze } from "@/lib/recovery-snooze"
 import { MIN_GUARDIAN_QUORUM } from "@/lib/recovery"
+import { homeHref } from "@/components/web/app-mode"
 
 const SAKU_ORANGE = "#F0A353"
 
@@ -159,7 +160,7 @@ export default function RecoverySetup() {
   }
 
   /** Every way out lands on Home — this screen is reached from there, and from Profile. */
-  const leave = () => router.push("/home")
+  const leave = () => router.push(homeHref())
 
   /** "Not now" on any step. Quiet for a week rather than forever; see `lib/recovery-snooze.ts`. */
   const dismiss = () => {

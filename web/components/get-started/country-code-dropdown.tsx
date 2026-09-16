@@ -129,7 +129,7 @@ export default function CountryCodeDropdown({ onSelect, selectedCode }: CountryC
         // `max-w-lg` is the app column's own width, so on a desktop the sheet rises under the
         // same edges the screen behind it uses. Below 512px it never binds, so a phone is
         // untouched by it.
-        className="w-full max-w-lg max-h-[85vh] bg-white rounded-t-3xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
+        className="w-full max-w-lg max-h-[85dvh] bg-white rounded-t-3xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 duration-200"
       >
         <div className="px-4 pt-4 pb-3 border-b border-black/5 shrink-0">
           <div className="flex items-center gap-2">

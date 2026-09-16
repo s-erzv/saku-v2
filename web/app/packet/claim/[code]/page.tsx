@@ -30,6 +30,7 @@ import PacketEnvelope from "@/components/packet/packet-envelope"
 import PacketLetter from "@/components/packet/packet-letter"
 import { explorerTxUrl } from "@/lib/config"
 import { EASE_RISE, openTimeline, type Beat } from "@/lib/packet-open-timeline"
+import { homeHref } from "@/components/web/app-mode"
 
 /** Deterministic-ish burst: enough pieces to read as celebration, few enough to stay smooth. */
 const CONFETTI = Array.from({ length: 28 }, (_, i) => ({
@@ -171,7 +172,7 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
             Try another code
           </button>
           <button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push(homeHref())}
             className="w-full py-3 rounded-2xl border-2 border-black/10 font-bold text-sm hover:border-black/25 transition-colors"
           >
             Back to Home
@@ -193,7 +194,7 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push(homeHref())}
             aria-label="Back"
             className="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
           >
@@ -330,7 +331,7 @@ export default function ClaimPacketPage({ params }: { params: Promise<{ code: st
         {details.alreadyClaimed || claimed ? (
           <div className="space-y-2">
             <button
-              onClick={() => router.push("/home")}
+              onClick={() => router.push(homeHref())}
               className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
             >
               Back to Home

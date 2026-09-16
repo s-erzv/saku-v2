@@ -31,6 +31,7 @@ import PacketLetter from "@/components/packet/packet-letter"
 import ContactCircle from "@/components/packet/contact-circle"
 import { CONTRACTS } from "@/lib/config"
 import { formatUsdc, transferFee } from "@/lib/fees"
+import { homeHref } from "@/components/web/app-mode"
 
 const MAX_SLOTS = 100
 
@@ -139,7 +140,7 @@ export default function CreatePacketForm({ onCreated }: { onCreated?: () => void
             onClick={() => {
               reset()
               if (onCreated) onCreated()
-              else router.push("/home")
+              else router.push(homeHref())
             }}
             className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
           >

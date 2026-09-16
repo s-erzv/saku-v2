@@ -41,14 +41,14 @@ export default function ReceiveDialog({ address, onClose }: ReceiveDialogProps) 
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="receive-title" className="fixed inset-0 z-[70] flex items-center justify-center p-4 font-sans">
+    <div role="dialog" aria-modal="true" aria-labelledby="receive-title" className="fixed inset-0 z-[70] flex h-dvh items-center justify-center overflow-y-auto p-4 font-sans">
       <button
         aria-label="Close"
         onClick={onClose}
         className="absolute inset-0 bg-black/45 animate-in fade-in duration-200"
       />
 
-      <div className="relative w-full max-w-[380px] rounded-[28px] bg-white px-6 pb-6 pt-9 text-ink shadow-[0_30px_90px_rgb(20_18_14/0.28)] animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative my-auto w-full max-w-[380px] rounded-[28px] bg-white px-6 pb-6 pt-9 text-ink shadow-[0_30px_90px_rgb(20_18_14/0.28)] animate-in fade-in zoom-in-95 duration-200">
         <img
           src="/icons/saku-mark.png"
           alt=""

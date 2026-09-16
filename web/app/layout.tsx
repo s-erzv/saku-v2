@@ -120,7 +120,7 @@ export default function RootLayout({
           stayed blocked with no obvious cause.
         */}
       </head>
-      <body className="font-sans antialiased overflow-x-hidden">
+      <body className="min-h-dvh w-full font-sans antialiased overflow-x-hidden">
         <MiniAppReady />
         <ServiceWorkerRegister />
         <AuthProvider>

@@ -23,6 +23,7 @@ import { useOfframp } from "@/hooks/useOfframp"
 import { useWarmApproval } from "@/hooks/useWarmApproval"
 import { keccak256, toUtf8Bytes } from "ethers"
 import { CONTRACTS, explorerTxUrl } from "@/lib/config"
+import { homeHref } from "@/components/web/app-mode"
 import { formatUsdc, offrampFee } from "@/lib/fees"
 
 interface QrisInfo {
@@ -148,7 +149,7 @@ export default function PayQrisPage() {
           )}
 
           <button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push(homeHref())}
             className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
           >
             Back to Home

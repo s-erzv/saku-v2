@@ -18,6 +18,7 @@ import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { useTokenBalances } from "@/hooks/useTokenBalances"
 import { usePayRequest } from "@/hooks/useQrPayment"
 import { CONTRACTS, explorerTxUrl } from "@/lib/config"
+import { homeHref } from "@/components/web/app-mode"
 
 export default function PayRequestPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params)
@@ -77,7 +78,7 @@ export default function PayRequestPage({ params }: { params: Promise<{ code: str
             </a>
           )}
           <button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push(homeHref())}
             className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
           >
             Back to Home

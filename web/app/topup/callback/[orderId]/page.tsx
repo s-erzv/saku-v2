@@ -14,6 +14,7 @@ import { CheckCircle, ExternalLink, Loader2, XCircle } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useTopup } from "@/hooks/useTopup"
 import { explorerTxUrl } from "@/lib/config"
+import { homeHref } from "@/components/web/app-mode"
 
 export default function TopupCallbackPage({
   params,
@@ -90,7 +91,7 @@ export default function TopupCallbackPage({
         )}
 
         <button
-          onClick={() => router.push("/home")}
+          onClick={() => router.push(homeHref())}
           className="w-full py-4 bg-black text-white rounded-2xl font-bold active:scale-[0.98] transition-transform"
         >
           Back to Home

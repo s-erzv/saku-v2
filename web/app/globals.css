@@ -379,6 +379,20 @@
   min-height: 0;
 }
 
+/* The installed app owns the viewport width. Clip decorative glows at the screen edge without
+   creating a horizontal scroll container or disabling intentional swipes inside carousels. */
+[data-app-surface] {
+  max-width: 100%;
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+[data-app-surface] img,
+[data-app-surface] video,
+[data-app-surface] canvas {
+  max-width: 100%;
+}
+
 /* A screen with no web layout of its own sits on the canvas as one sheet. */
 [data-web-sheet] > * {
   max-width: 36rem;

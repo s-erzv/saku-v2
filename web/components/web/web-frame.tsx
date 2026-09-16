@@ -163,7 +163,10 @@ export default function AppFrame({ children }: { children: ReactNode }) {
 
   return (
     <WebShellContext.Provider value={shell}>
-      <div className={web ? "min-h-dvh bg-canvas font-sans text-ink" : undefined}>
+      <div
+        data-app-surface={mode === "app" ? "" : undefined}
+        className={web ? "min-h-dvh w-full min-w-0 bg-canvas font-sans text-ink" : "min-h-dvh w-full min-w-0 max-w-full"}
+      >
         {shell ? <WebNavbar pathname={pathname} walletAddress={walletAddress} version={version} /> : null}
 
         <div className={web ? "lg:flex lg:items-start" : undefined}>
@@ -493,7 +496,7 @@ function ToolPanel({ tool, shell }: { tool: ToolId; shell: WebShell }) {
   return (
     <aside
       aria-label={meta.label}
-      className="animate-web-panel-in fixed inset-0 z-50 flex flex-col bg-white pt-[env(safe-area-inset-top)] lg:sticky lg:inset-auto lg:top-16 lg:z-40 lg:h-[calc(100dvh-4rem)] lg:w-[420px] lg:shrink-0 lg:border-l lg:border-black/[0.06] lg:pt-0"
+      className="animate-web-panel-in fixed inset-0 z-50 flex h-dvh min-w-0 flex-col bg-white pt-[env(safe-area-inset-top)] lg:sticky lg:inset-auto lg:top-16 lg:z-40 lg:h-[calc(100dvh-4rem)] lg:w-[420px] lg:shrink-0 lg:border-l lg:border-black/[0.06] lg:pt-0"
     >
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-black/[0.06] px-5">
         <IconTile icon={meta.icon} size="sm" />

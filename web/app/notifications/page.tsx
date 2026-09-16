@@ -17,6 +17,7 @@ import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Bell, Gift, Loader2, Receipt, S
 import { useAuth } from "@/hooks/useAuth"
 import { useNotifications, type SakuNotification } from "@/hooks/useNotifications"
 import BottomNavigation from "@/components/home/bottom-navigation"
+import { homeHref } from "@/components/web/app-mode"
 
 /**
  * `notifications.type` is a Postgres enum with only four values — transfer_received,
@@ -152,7 +153,7 @@ export default function NotificationsPage() {
       <div className="px-5 py-6 space-y-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push(homeHref())}
             aria-label="Back"
             className="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors"
           >

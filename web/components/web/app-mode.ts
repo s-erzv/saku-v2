@@ -12,24 +12,24 @@
  * client render agree on `null`, and the real answer lands on the very next commit. Screens wait
  * behind their loading state until then, so neither UI flashes before the other.
  *
- * `?view=app` or `?view=web` pins the answer for the rest of the tab. It is the only way to look
- * at the app UI on a laptop without installing it.
+ * The /app route wins over every override. An installed surface also wins over a stale ?view=web
+ * override. In a regular tab, ?view=app or ?view=web pins the answer for the rest of that tab.
  */
 
 import { useSyncExternalStore } from "react"
 
 export type AppMode = "app" | "web"
 
+export const APP_HOME = "/app/home"
+export const WEB_HOME = "/home"
+
 const VIEW_KEY = "saku_view"
 
 function readMode(): AppMode {
-  try {
-    const forced = new URLSearchParams(window.location.search).get("view")
-    if (forced === "app" || forced === "web") sessionStorage.setItem(VIEW_KEY, forced)
-    const pinned = sessionStorage.getItem(VIEW_KEY)
-    if (pinned === "app" || pinned === "web") return pinned
-  } catch {
-    // Storage blocked: fall through to detection.
+  // The app URL also carries app context through sign-in and shared feature routes.
+  if (window.location.pathname === APP_HOME || window.location.pathname.startsWith("/app/")) {
+    try { sessionStorage.setItem(VIEW_KEY, "app") } catch { /* Storage may be blocked. */ }
+    return "app"
   }
 
   const installed =
@@ -39,7 +39,26 @@ function readMode(): AppMode {
   // Farcaster and Base open mini-apps in a native webview, which is an app surface, not a tab.
   const miniAppHost = "ReactNativeWebView" in window
 
-  return installed || miniAppHost ? "app" : "web"
+  if (installed || miniAppHost) {
+    try { sessionStorage.setItem(VIEW_KEY, "app") } catch { /* Storage may be blocked. */ }
+    return "app"
+  }
+
+  try {
+    const forced = new URLSearchParams(window.location.search).get("view")
+    if (forced === "app" || forced === "web") sessionStorage.setItem(VIEW_KEY, forced)
+    const pinned = sessionStorage.getItem(VIEW_KEY)
+    if (pinned === "app" || pinned === "web") return pinned
+  } catch {
+    // Storage blocked: use browser mode.
+  }
+
+  return "web"
+}
+
+/** Use at navigation time, after hydration, so shared flows return to the right Home. */
+export function homeHref(): typeof APP_HOME | typeof WEB_HOME {
+  return readMode() === "app" ? APP_HOME : WEB_HOME
 }
 
 /** Nothing to listen to: a tab does not become installed while it is open. */

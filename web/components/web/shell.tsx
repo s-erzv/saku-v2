@@ -18,6 +18,7 @@
 
 import { createContext, useContext } from "react"
 import { useRouter } from "next/navigation"
+import { APP_HOME, WEB_HOME } from "@/components/web/app-mode"
 import type { Icon } from "@phosphor-icons/react"
 import { Bank, ChartLineUp, CreditCard, Gift, PaperPlaneTilt, QrCode, Receipt, Scan } from "@phosphor-icons/react"
 
@@ -83,7 +84,7 @@ export function useScreenNav() {
     /** Done with this screen. */
     exit: () => {
       if (shell && inPanel) shell.closeTool()
-      else router.push("/home")
+      else router.push(shell ? WEB_HOME : APP_HOME)
     },
     /** Another screen. In the web wallet, a plain tool route opens that tool in the panel. */
     go: (href: string) => {

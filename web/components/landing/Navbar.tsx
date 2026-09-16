@@ -88,7 +88,7 @@ export default function Navbar({ className = "" }: NavbarProps) {
             transition-all duration-300 ease-in-out overflow-hidden
             ${
               state 
-                ? "max-h-screen opacity-100 mt-8 pb-3" 
+                ? "max-h-dvh opacity-100 mt-8 pb-3"
                 : "max-h-0 opacity-0 md:max-h-full md:opacity-100"
             }
           `}

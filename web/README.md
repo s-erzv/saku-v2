@@ -39,9 +39,10 @@ still rejects unknown contracts, foreign chains, native value and arbitrary spen
 
 | Route | What it is |
 |---|---|
-| `/` | Landing page. The only screen designed for a desktop viewport. |
+| `/` | Public landing page |
 | `/get-started`, `/onboarding` | Phone sign-in and the first-run tour |
-| `/home` | The dashboard: balance, services, activity |
+| `/home` | Browser wallet dashboard: balance, services, activity |
+| `/app/home` | Installed app dashboard |
 | `/transfer` | Send to a phone number |
 | `/topup`, `/topup/callback/[orderId]` | Buy in with fiat via Xendit |
 | `/offramp` | Cash out to a bank or e-wallet, through the escrow |
@@ -53,10 +54,11 @@ still rejects unknown contracts, foreign chains, native value and arbitrary spen
 | `/security/setup`, `/profile/security`, `/recover` | Backup email, guardians, account recovery |
 | `/guardian/invite/[token]`, `/guardian/approve/[token]` | Guardian flows, reachable without an account |
 
-Everything except `/` is built for a phone and capped at `max-w-lg`. Sizes are written as
-`clamp(floor, N vw, desktop)` rather than `sm:` pairs, so one design is drawn at whatever size
-the column happens to be instead of two designs swapping over at 640px. The reasoning is written
-out at the top of `components/home/quick-actions.tsx`.
+The installed app's Home and the shared feature screens use a phone column capped at `max-w-lg`.
+The browser wallet lays Home, activity and profile out across the available width. The installed
+PWA starts at `/app/home`; `manifest.json` keeps its previous `/home` ID so a changed start URL
+does not also change the identity of existing Chrome installations. The phone sizing in the app
+is explained at the top of `components/home/quick-actions.tsx`.
 
 ## The important modules
 

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/hooks/useAuth"
 import PaySheet from "@/components/pay/pay-sheet"
 import { useWebShell } from "@/components/web/shell"
+import { APP_HOME } from "@/components/web/app-mode"
 
 type NavItem = {
   label: string
@@ -30,7 +31,7 @@ type NavItem = {
 // `ready` marks the destinations that exist. A tab that navigates to a route that is not there
 // yet is worse than one that says "soon".
 const leftItems: NavItem[] = [
-  { label: "Home", icon: House, path: "/home", ready: true },
+  { label: "Home", icon: House, path: APP_HOME, ready: true },
   { label: "History", icon: ClockCounterClockwise, path: "/transactions", ready: true },
 ]
 
@@ -252,7 +253,7 @@ export default function BottomNavigation({ initialPayOpen = false }: BottomNavig
     setPayOpen(false)
     // Dismissing the sheet on `/pay` would otherwise leave the user on a page that is nothing
     // but a backdrop for it.
-    if (pathname === "/pay") router.replace("/home")
+    if (pathname === "/pay") router.replace(APP_HOME)
   }
 
   if (shell) return null

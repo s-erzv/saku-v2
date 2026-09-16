@@ -31,7 +31,7 @@ export default function ProfilePage() {
   // The same wordmark Home waits behind, rather than a bare spinner on a different background.
   // Two loading screens for one app is the kind of seam people read as a bug.
   if (isLoading) return (
-    <div className="min-h-screen bg-white flex items-center justify-center font-sans">
+    <div className="min-h-dvh bg-white flex items-center justify-center font-sans">
       <video className="w-50" src="/logo.webm" autoPlay muted loop playsInline />
     </div>
   )

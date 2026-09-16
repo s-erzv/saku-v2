@@ -10,6 +10,7 @@ import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 import { ArrowLeft, ShieldCheck } from "lucide-react"
 import { OTP_LENGTH } from "@/lib/otp-shape"
 import { rememberOwnNumber } from "@/lib/own-number"
+import { homeHref } from "@/components/web/app-mode"
 
 /**
  * National numbers are shorter outside Indonesia — Malaysia runs to nine digits without its
@@ -70,7 +71,7 @@ export default function LoginScreen() {
   const submitting = useRef(false)
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) router.replace("/home")
+    if (!isLoading && isAuthenticated) router.replace(homeHref())
   }, [isAuthenticated, isLoading, router])
 
   useEffect(() => {
@@ -192,7 +193,7 @@ export default function LoginScreen() {
         const signedIn = await refreshUser()
         rememberOwnNumber(signedIn?.phone_hash, formatPhone(phone), selectedCountryCode)
 
-        router.push("/home")
+        router.push(homeHref())
       } catch (err) {
         failCode(err instanceof Error ? err.message : "That code didn't work. Try again.")
         setPhase("verifying")

@@ -30,6 +30,7 @@ import CountryCodeDropdown from "@/components/get-started/country-code-dropdown"
 import { useAuth } from "@/hooks/useAuth"
 import { useMpcWallet } from "@/hooks/useMpcWallet"
 import { OTP_LENGTH } from "@/lib/otp-shape"
+import { homeHref } from "@/components/web/app-mode"
 
 const SAKU_ORANGE = "#F0A353"
 
@@ -310,7 +311,7 @@ export default function RecoverFlow() {
         toast.error("Wallet setup didn't finish. You can pick it up again from home.")
       }
       await refreshUser()
-      router.replace("/home")
+      router.replace(homeHref())
     } catch {
       setError("Could not reach Saku. Check your connection.")
     } finally {
