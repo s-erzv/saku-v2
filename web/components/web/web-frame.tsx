@@ -165,7 +165,7 @@ export default function AppFrame({ children }: { children: ReactNode }) {
     <WebShellContext.Provider value={shell}>
       <div
         data-app-surface={mode === "app" ? "" : undefined}
-        className={web ? "min-h-dvh w-full min-w-0 bg-canvas font-sans text-ink" : "min-h-dvh w-full min-w-0 max-w-full"}
+        className={web ? "min-h-dvh w-full min-w-0 max-w-full overflow-x-clip bg-canvas font-sans text-ink" : "min-h-dvh w-full min-w-0 max-w-full overflow-x-clip"}
       >
         {shell ? <WebNavbar pathname={pathname} walletAddress={walletAddress} version={version} /> : null}
 
@@ -231,7 +231,7 @@ function WebNavbar({
   return (
     // Solid, not frosted: a backdrop filter here would become the containing block for the account
     // menu's full-screen click-catcher and shrink it to the height of the bar.
-    <header className={`sticky top-0 border-b border-black/[0.06] bg-white ${menuOpen ? "z-50" : "z-30"}`}>
+    <header className={`relative border-b border-black/[0.06] bg-white pt-[env(safe-area-inset-top)] lg:sticky lg:top-0 lg:pt-0 ${menuOpen ? "z-50" : "z-30"}`}>
       <div className="flex h-16 items-center gap-2 px-4 sm:px-6">
         <Link href="/home" className="mr-2 flex shrink-0 items-center gap-2.5 lg:mr-6">
           <img src="/icons/saku-mark.png" alt="" className="h-9 w-9" />
@@ -263,7 +263,7 @@ function WebNavbar({
         </div>
       </div>
 
-      <nav aria-label="Pages" className="scrollbar-hide flex gap-1 overflow-x-auto px-4 pb-2.5 sm:px-6 lg:hidden">
+      <nav aria-label="Pages" className="flex max-w-sm gap-1 overflow-hidden px-4 pb-2.5 sm:px-6 lg:hidden">
         {links}
       </nav>
     </header>
@@ -438,9 +438,9 @@ function ToolRail({ pathname, shell }: { pathname: string; shell: WebShell }) {
   return (
     <nav
       aria-label="Tools"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-black/[0.06] bg-white pb-[env(safe-area-inset-bottom)] lg:sticky lg:inset-auto lg:top-16 lg:z-30 lg:h-[calc(100dvh-4rem)] lg:w-[88px] lg:shrink-0 lg:border-l lg:border-t-0 lg:pb-0"
+      className="fixed inset-x-0 bottom-0 z-40 w-full max-w-full overflow-hidden border-t border-black/[0.06] bg-white pb-[env(safe-area-inset-bottom)] lg:sticky lg:inset-auto lg:top-16 lg:z-30 lg:h-[calc(100dvh-4rem)] lg:w-[88px] lg:shrink-0 lg:border-l lg:border-t-0 lg:pb-0"
     >
-      <div className="scrollbar-hide flex gap-0.5 overflow-x-auto px-2 py-1.5 lg:h-full lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:py-3">
+      <div className="grid grid-cols-8 px-1 py-1.5 lg:flex lg:h-full lg:flex-col lg:overflow-y-auto lg:px-2 lg:py-3">
         <button
           onClick={() => (shell.activeTool ? shell.closeTool() : shell.openTool("transfer"))}
           aria-label={shell.activeTool ? "Close panel" : "Open tools"}
@@ -473,17 +473,24 @@ function ToolRail({ pathname, shell }: { pathname: string; shell: WebShell }) {
   )
 }
 
-function RailButton({ icon, label, active, onClick }: { icon: Icon; label: string; active: boolean; onClick: () => void }) {
+function RailButton({ icon: Glyph, label, active, onClick }: { icon: Icon; label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       aria-current={active ? "true" : undefined}
-      className={`flex min-w-[68px] shrink-0 flex-col items-center gap-1.5 rounded-2xl px-1 pb-1.5 pt-2 transition-colors ${
-        active ? "bg-canvas" : "hover:bg-black/[0.03]"
-      }`}
+      className="flex min-w-0 flex-col items-center gap-1 px-0.5 py-1 transition-colors lg:min-w-[68px] lg:shrink-0 lg:gap-1.5 lg:rounded-2xl lg:px-1 lg:pb-1.5 lg:pt-2 lg:hover:bg-black/[0.03]"
     >
-      <IconTile icon={icon} size="sm" className={active ? "ring-2 ring-gilt/70 ring-offset-2 ring-offset-canvas" : ""} />
-      <span className={`text-[11px] font-medium leading-none ${active ? "text-ink" : "text-black/55"}`}>{label}</span>
+      <span
+        aria-hidden
+        className={`flex h-8 w-8 items-center justify-center rounded-[11px] transition-[color,background-color,box-shadow] ${
+          active
+            ? "bg-ink text-gilt shadow-[inset_0_0_0_1px_rgb(221_186_124/0.24)]"
+            : "text-[#8A5D16]"
+        }`}
+      >
+        <Glyph size={20} weight={active ? "fill" : "regular"} />
+      </span>
+      <span className={`w-full truncate text-center text-[9px] font-medium leading-none lg:text-[11px] ${active ? "text-ink" : "text-black/55"}`}>{label}</span>
     </button>
   )
 }

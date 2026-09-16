@@ -23,7 +23,7 @@ export default function HomeHeader() {
     : (user?.phone_hash.slice(-2).toUpperCase() ?? "S")
 
   return (
-    <header className="relative z-50 px-[clamp(18px,4.69vw,24px)] pt-[clamp(24px,6.25vw,32px)] pb-[clamp(12px,3.13vw,16px)] max-w-lg mx-auto font-sans">
+    <header className="relative z-50 mx-auto max-w-lg px-[clamp(18px,4.69vw,24px)] pb-[clamp(12px,3.13vw,16px)] pt-[calc(env(safe-area-inset-top)_+_clamp(24px,6.25vw,32px))] font-sans">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-[clamp(8px,2.34vw,12px)] flex-1 min-w-0">
           <div className="relative shrink-0">

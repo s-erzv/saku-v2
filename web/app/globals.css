@@ -107,8 +107,16 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
   body {
-    @apply bg-background text-foreground transition-colors duration-300;
+    width: 100%;
+    max-width: 100%;
+    min-height: 100%;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+  body {
+    @apply min-h-dvh bg-background text-foreground transition-colors duration-300;
   }
   /* Lucide ships a 2px stroke, which is what made the utility glyphs read as clip-art next to the
      type. CSS beats the SVG's own attribute, so this thins every one of them, and a utility class
