@@ -115,38 +115,52 @@ export function usePayRequest(code: string) {
         // Added on top: `value` is what the payee receives, the fee is extra.
         const fee = parseUnits(transferFee(Number(amount)).feeUsdc.toFixed(USDC_DECIMALS), USDC_DECIMALS);
 
-        if (address) {
-          const balance: bigint = await usdc.balanceOf(address);
-          if (balance < value + fee) {
-            throw new Error(
-              `Not enough USDC: this payment needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
-            );
-          }
-        }
+        // Two reads that do not feed each other — the balance is on-chain, the treasury is a Saku
+        // route — so they go together rather than one behind the other. The balance is still
+        // checked before signing, so an impossible payment fails as a sentence rather than as an
+        // on-chain revert the payer pays gas for.
+        const [balance, treasury] = await Promise.all([
+          address ? (usdc.balanceOf(address) as Promise<bigint>) : Promise.resolve(null),
+          getTreasuryAddress(isAuthenticated),
+        ]);
 
-        const treasury = await getTreasuryAddress(isAuthenticated);
+        if (balance !== null && balance < value + fee) {
+          throw new Error(
+            `Not enough USDC: this payment needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
+          );
+        }
 
         const tx = await usdc.transfer(details.payeeAddress, value);
         setPaidTxHash(tx.hash);
-        await tx.wait();
 
-        const feeTxHash = await chargePlatformFee({
-          signer, usdcAddress: CONTRACTS.USDC, treasury, feeUnits: fee,
-        });
+        // The payee has their money and the chain agrees. Saku's fee and the receipt are
+        // bookkeeping — the code below already treats a failed receipt as something to log rather
+        // than to report — so neither belongs in front of the screen that says the payment went
+        // through. We return a promise so the UI can attach a toast to it.
+        const confirmation = (async () => {
+          await tx.wait();
+          const feeTxHash = await chargePlatformFee({
+            signer, usdcAddress: CONTRACTS.USDC, treasury, feeUnits: fee,
+          });
 
-        // Filed after confirmation — the route verifies the receipt, so an earlier call would
-        // just 404 on a transaction the node has not mined.
-        const res = await fetch(`/api/qr-payment/${code}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
-        });
-        const data = await res.json();
-        // The payment already happened on-chain; a bookkeeping failure must not read as one.
-        if (!res.ok) console.warn('[qr-pay] receipt not recorded:', data.error);
+          // Filed after confirmation — the route verifies the receipt, so an earlier call would
+          // just 404 on a transaction the node has not mined.
+          const res = await fetch(`/api/qr-payment/${code}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
+            // Has to outlive the screen that started it: a payment ends on a receipt the payer
+            // reads and then leaves.
+            keepalive: true,
+          }).catch(() => null);
+
+          // The payment already happened on-chain; a bookkeeping failure must not read as one.
+          if (!res?.ok) console.warn('[qr-pay] receipt not recorded');
+          return tx.hash;
+        })();
 
         setPhase('done');
-        return tx.hash as string;
+        return { txHash: tx.hash, confirmation };
       } catch (err) {
         setPhase('failed');
         const message = err instanceof Error ? err.message : 'Payment failed';

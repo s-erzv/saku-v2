@@ -158,26 +158,33 @@ export function useOfframp() {
         const usdc = new Contract(CONTRACTS.USDC, ERC20_ABI, signer);
         const escrowAddress = process.env.NEXT_PUBLIC_ESCROW_ADDRESS as string;
 
-        if (address) {
-          const balance: bigint = await usdc.balanceOf(address);
-          if (balance < value) throw new Error('Not enough USDC in your wallet.');
-        }
-
-        // If the screen already started warming this allowance, join that wait rather than
-        // signing a second, identical approval.
+        // The balance read and the warm approval have nothing to say to each other, so the read
+        // does not queue behind the wait.
         setPhase('approving');
-        await awaitWarmApproval(address, escrowAddress);
+        const [balance, warmed] = await Promise.all([
+          address ? (usdc.balanceOf(address) as Promise<bigint>) : Promise.resolve(null),
+          // If the screen already started warming this allowance, join that wait rather than
+          // signing a second, identical approval.
+          awaitWarmApproval(address, escrowAddress),
+        ]);
+
+        if (balance !== null && balance < value) {
+          throw new Error('Not enough USDC in your wallet.');
+        }
 
         // Approve once, for everything. A per-transfer approval means a second MPC signature
         // every single time, which is the slowest part of this flow by a wide margin — the
         // approval transaction itself mines in about two seconds.
-        const current: bigint = address
-          ? await usdc.allowance(address, escrowAddress)
-          : BigInt(0);
+        // Skip the on-chain read when the warm approval already granted MAX_APPROVAL.
+        if (!warmed) {
+          const current: bigint = address
+            ? await usdc.allowance(address, escrowAddress)
+            : BigInt(0);
 
-        if (current < value) {
-          const approval = await usdc.approve(escrowAddress, MAX_APPROVAL);
-          await approval.wait();
+          if (current < value) {
+            const approval = await usdc.approve(escrowAddress, MAX_APPROVAL);
+            await approval.wait();
+          }
         }
 
         setPhase('locking');

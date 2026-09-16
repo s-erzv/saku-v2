@@ -32,13 +32,62 @@ import { extractClientIP, extractUserAgent } from '@/lib/request-meta';
 import { assertSignable, TxPolicyError, type SignedIntent } from '@/lib/tx-policy';
 import { checkDailyCap, recordSigningEvent, type SigningContext } from '@/lib/spend-limits';
 
+/**
+ * Read the body and decode it, carrying a refusal instead of throwing it.
+ *
+ * The refusal has to be recorded against the caller's wallet, and that lookup is deliberately in
+ * flight at the same time as this — so the failure is returned as a value and acted on below,
+ * once there is a wallet to record it against.
+ */
+async function readIntent(
+  request: Request
+): Promise<
+  | { ok: true; unsignedTransaction: string; intent: SignedIntent }
+  | { ok: false; message: string }
+> {
+  try {
+    const body = await request.json();
+    const unsignedTransaction = String(body.unsignedTransaction ?? '');
+    return { ok: true, unsignedTransaction, intent: assertSignable(unsignedTransaction) };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof TxPolicyError ? err.message : 'Invalid unsigned transaction',
+    };
+  }
+}
+
 export async function POST(request: Request) {
   const session = await getSession(request);
   if (!session) return unauthorized();
 
+  const supabase = getSupabaseAdmin();
+
+  /**
+   * Three pieces of work that do not feed each other, started together rather than one after the
+   * next: counting this request against the limiter, finding which wallet the session owns, and
+   * decoding what is being asked for. Each was a separate round trip to Postgres or to the
+   * request body, and a signature waited through all three in sequence before anything began.
+   *
+   * Only the *timing* changes. Every decision below is made in the same order it was before, on
+   * the same evidence, and each one still returns before the next is considered — the limiter
+   * still refuses ahead of the wallet lookup, and nothing is signed until all three have passed.
+   * What a refused caller costs Saku is two reads it would previously have avoided, which is the
+   * trade this makes knowingly: a read apiece on the rare refusal, against a round trip apiece on
+   * every legitimate payment.
+   */
   // Keyed on the user, not the IP. An attacker changes IP for free; what they cannot change is
   // which account they are draining, and that is the thing worth counting.
-  const limit = await checkRateLimit(`sign:${session.userId}`, RATE_LIMITS.SIGNING);
+  const limitPending = checkRateLimit(`sign:${session.userId}`, RATE_LIMITS.SIGNING);
+  const walletPending = supabase
+    .from('wallets')
+    .select('address, privy_wallet_id')
+    .eq('user_id', session.userId)
+    .eq('chain_id', CHAIN_ID)
+    .maybeSingle();
+  const intentPending = readIntent(request);
+
+  const limit = await limitPending;
   if (!limit.allowed) {
     return NextResponse.json(
       { error: 'Too many signing requests. Wait a moment and try again.' },
@@ -46,13 +95,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = getSupabaseAdmin();
-  const { data: wallet, error: walletError } = await supabase
-    .from('wallets')
-    .select('address, privy_wallet_id')
-    .eq('user_id', session.userId)
-    .eq('chain_id', CHAIN_ID)
-    .maybeSingle();
+  const { data: wallet, error: walletError } = await walletPending;
 
   if (walletError) {
     console.error('[mpc/sign] wallet lookup failed:', walletError);
@@ -69,19 +112,15 @@ export async function POST(request: Request) {
     userAgent: extractUserAgent(request),
   };
 
-  let intent: SignedIntent;
-  let unsignedTransaction: string;
-  try {
-    const body = await request.json();
-    unsignedTransaction = String(body.unsignedTransaction ?? '');
-    intent = assertSignable(unsignedTransaction);
-  } catch (err) {
-    const message = err instanceof TxPolicyError ? err.message : 'Invalid unsigned transaction';
+  const decoded = await intentPending;
+  if (!decoded.ok) {
     // Recorded before the response goes out: a run of these against one account is the clearest
     // early sign that a session has been taken, and it is worth nothing if it is not written down.
-    await recordSigningEvent(context, null, 'refused', message);
-    return NextResponse.json({ error: message }, { status: 400 });
+    await recordSigningEvent(context, null, 'refused', decoded.message);
+    return NextResponse.json({ error: decoded.message }, { status: 400 });
   }
+
+  const { intent, unsignedTransaction } = decoded;
 
   try {
     const cap = await checkDailyCap(session.userId, intent);

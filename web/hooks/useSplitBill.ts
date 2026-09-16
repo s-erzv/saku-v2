@@ -12,7 +12,7 @@ import { Contract, formatUnits, parseUnits } from 'ethers';
 import { useAuth } from './useAuth';
 import { useMpcWallet } from './useMpcWallet';
 import { CONTRACTS } from '@/lib/config';
-import { chargePlatformFee, getTreasuryAddress } from '@/lib/platform-fee';
+import { chargeFeeAndAttach, getTreasuryAddress } from '@/lib/platform-fee';
 import { transferFee } from '@/lib/fees';
 import type { BillCharges, BillItem, PersonTotal } from '@/lib/split-bill-math';
 
@@ -186,34 +186,48 @@ export function useBillDetails(id: string) {
       const signer = await getSigner();
       const usdc = new Contract(CONTRACTS.USDC, ERC20_ABI, signer);
 
-      if (address) {
-        const balance: bigint = await usdc.balanceOf(address);
-        if (balance < value + fee) {
-          throw new Error(
-            `Not enough USDC: this share needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
-          );
-        }
-      }
+      // Neither read feeds the other, so they go together rather than one behind the other.
+      const [balance, treasury] = await Promise.all([
+        address ? (usdc.balanceOf(address) as Promise<bigint>) : Promise.resolve(null),
+        getTreasuryAddress(isAuthenticated),
+      ]);
 
-      const treasury = await getTreasuryAddress(isAuthenticated);
+      if (balance !== null && balance < value + fee) {
+        throw new Error(
+          `Not enough USDC: this share needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
+        );
+      }
 
       const tx = await usdc.transfer(bill.creatorAddress, value);
       await tx.wait();
 
-      const feeTxHash = await chargePlatformFee({
-        signer, usdcAddress: CONTRACTS.USDC, treasury, feeUnits: fee,
-      });
+      void (async () => {
+        const res = await fetch(`/api/split-bill/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ txHash: tx.hash }),
+          // Has to outlive the screen that started it: a payment ends on a receipt the payer
+          // reads and then leaves.
+          keepalive: true,
+        }).catch(() => null);
+        // The transfer already happened on-chain; a bookkeeping failure is not a payment failure.
+        if (res && !res.ok) console.warn('[split-bill] share not recorded');
 
-      const res = await fetch(`/api/split-bill/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
-      });
-      const data = await res.json();
-      // The transfer already happened on-chain; a bookkeeping failure is not a payment failure.
-      if (!res.ok) console.warn('[split-bill] share not recorded:', data.error);
+        // Do this after the successful recording request, never before it. A background fee can
+        // broadcast quickly enough to beat the insert; attaching then would update no row and
+        // silently lose the trace. This is still entirely off the user's critical path.
+        if (res?.ok) {
+          chargeFeeAndAttach({
+            signer,
+            usdcAddress: CONTRACTS.USDC,
+            treasury,
+            feeUnits: fee,
+            txHash: tx.hash,
+          });
+        }
+        await load();
+      })();
 
-      await load();
       return tx.hash as string;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Payment failed';

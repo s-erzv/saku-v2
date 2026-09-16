@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Wallet backed by server-side key management (trust model: `ARCHITECTURE.md` at the repo root).
+ * Wallet backed by server-side key management (trust model: "Custody, stated first" in the
+ * repository root `README.md`).
  *
  * This replaced the Web3Auth MPC integration after its `sapphire_devnet` signing infrastructure
  * proved unreliable under real testing: transactions would hang indefinitely with no error,
@@ -20,8 +21,17 @@
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AbstractSigner, JsonRpcProvider, Transaction, type Provider, type TransactionRequest } from 'ethers';
+import {
+  AbstractSigner,
+  JsonRpcProvider,
+  Transaction,
+  type BlockTag,
+  type Provider,
+  type TransactionRequest,
+  type TransactionResponse,
+} from 'ethers';
 import { NETWORK_CONFIG, RECEIPT_POLLING_MS } from '@/lib/config';
+import { allocateNonce, releaseNonces, reserveNonce } from '@/lib/nonce';
 import { useAuth } from './useAuth';
 
 export type MpcStatus = 'idle' | 'connecting' | 'connected';
@@ -67,6 +77,44 @@ class BackendSigner extends AbstractSigner {
     return new BackendSigner(provider as Provider, this.address);
   }
 
+  /**
+   * Answer the pending-nonce question without asking the node for a pending nonce.
+   *
+   * `populateTransaction` calls `getNonce("pending")` before every transaction, and on this RPC
+   * that one call measured between 10 and 18 seconds while everything else in a transfer measured
+   * in the low hundreds of milliseconds. It ran in sequence ahead of the gas estimate, the fee
+   * data and the signature, so it was not part of the wait — it was the wait. `lib/nonce.ts`
+   * explains what replaces it and why that is still correct for a second transaction sent before
+   * the first has mined.
+   */
+  async getNonce(blockTag?: BlockTag): Promise<number> {
+    const provider = this.provider;
+    // Anything other than the pending nonce is asking a question this cannot answer from a
+    // reservation, and a signer with no provider should still fail with ethers' own message.
+    if (!provider || (blockTag != null && blockTag !== 'pending')) return super.getNonce(blockTag);
+
+    return allocateNonce(provider, NETWORK_CONFIG.chainId, this.address);
+  }
+
+  /**
+   * Broadcast, then record the nonce that was accepted — and only then.
+   *
+   * Reserving before the node has taken the transaction would be reserving for a transaction that
+   * may never exist, and a nonce nothing ever fills is a gap every later transaction queues
+   * behind. A rejected broadcast drops the reservation instead: the node has just disagreed with
+   * what this signer believed, and the node decides.
+   */
+  async sendTransaction(tx: TransactionRequest): Promise<TransactionResponse> {
+    try {
+      const sent = await super.sendTransaction(tx);
+      reserveNonce(NETWORK_CONFIG.chainId, this.address, sent.nonce);
+      return sent;
+    } catch (error) {
+      releaseNonces(NETWORK_CONFIG.chainId, this.address);
+      throw error;
+    }
+  }
+
   async signTransaction(tx: TransactionRequest): Promise<string> {
     const unsignedTransaction = Transaction.from(tx as never).unsignedSerialized;
 
@@ -103,6 +151,27 @@ interface WalletState {
 }
 
 const EMPTY_WALLET: Omit<WalletState, 'userId'> = { status: 'idle', address: null, error: null };
+
+/**
+ * One provider for the tab, not one per signer.
+ *
+ * `getSigner` used to build a `JsonRpcProvider` on every call, and every screen that sends a
+ * transaction calls it. A fresh provider is a fresh TLS handshake to the RPC and an empty internal
+ * cache, so back-to-back work — the balance check, the transfer, the fee — paid connection setup
+ * each time and re-fetched everything it had just been told. The signer is what has to be per
+ * wallet; the transport does not.
+ */
+let sharedProvider: JsonRpcProvider | null = null;
+
+export function getSharedProvider(): JsonRpcProvider {
+  if (!sharedProvider) {
+    sharedProvider = new JsonRpcProvider(NETWORK_CONFIG.rpcUrl, NETWORK_CONFIG.chainId, {
+      staticNetwork: true,
+      pollingInterval: RECEIPT_POLLING_MS,
+    });
+  }
+  return sharedProvider;
+}
 
 export function MpcWalletProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuth();
@@ -156,11 +225,7 @@ export function MpcWalletProvider({ children }: { children: ReactNode }) {
 
   const getSigner = useCallback(async () => {
     if (!current.address) throw new Error('Wallet is not connected');
-    const provider = new JsonRpcProvider(NETWORK_CONFIG.rpcUrl, NETWORK_CONFIG.chainId, {
-      staticNetwork: true,
-      pollingInterval: RECEIPT_POLLING_MS,
-    });
-    return new BackendSigner(provider, current.address);
+    return new BackendSigner(getSharedProvider(), current.address);
   }, [current.address]);
 
   const logout = useCallback(() => {

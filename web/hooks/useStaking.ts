@@ -12,9 +12,9 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Contract, JsonRpcProvider, formatUnits, parseUnits } from 'ethers';
-import { useMpcWallet } from './useMpcWallet';
-import { CONTRACTS, MAX_APPROVAL, NETWORK_CONFIG, RECEIPT_POLLING_MS } from '@/lib/config';
+import { Contract, formatUnits, parseUnits } from 'ethers';
+import { useMpcWallet, getSharedProvider } from './useMpcWallet';
+import { CONTRACTS, MAX_APPROVAL } from '@/lib/config';
 import { awaitWarmApproval } from './useWarmApproval';
 
 const USDC_DECIMALS = 6;
@@ -89,10 +89,7 @@ export function useStaking() {
 
     setIsLoading(true);
     try {
-      const provider = new JsonRpcProvider(NETWORK_CONFIG.rpcUrl, NETWORK_CONFIG.chainId, {
-        staticNetwork: true,
-        pollingInterval: RECEIPT_POLLING_MS,
-      });
+      const provider = getSharedProvider();
       const staking = new Contract(stakingAddress, STAKING_ABI, provider);
 
       const [total, minStake, apyBps, reserve] = await Promise.all([
@@ -171,8 +168,8 @@ async function recordStaking(txHash: string): Promise<void> {
         const tx = await fn(staking);
         setLastTxHash(tx.hash);
         await tx.wait();
-        await recordStaking(tx.hash);
-        await refresh();
+        // Chain confirmed — show success immediately. Recording and refresh are bookkeeping.
+        void recordStaking(tx.hash).then(() => refresh());
         return tx.hash;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Transaction failed';
@@ -197,17 +194,26 @@ async function recordStaking(txHash: string): Promise<void> {
         const stakingAddress = getStakingAddress();
 
         if (address) {
-          const balance: bigint = await usdc.balanceOf(address);
-          if (balance < value) throw new Error('Not enough USDC in your wallet.');
-
+          // The balance read and the warm approval have nothing to say to each other, so the
+          // read does not queue behind the wait. The allowance still does — it is the thing the
+          // warm approval changes.
+          //
           // Approved once for everything, for the same reason as the off-ramp: the second MPC
           // signature costs far more waiting than the approval transaction does. Joins the
           // screen's warm approval if one is still mining.
-          await awaitWarmApproval(address, stakingAddress);
-          const allowance: bigint = await usdc.allowance(address, stakingAddress);
-          if (allowance < value) {
-            const approval = await usdc.approve(stakingAddress, MAX_APPROVAL);
-            await approval.wait();
+          const [balance, warmed] = await Promise.all([
+            usdc.balanceOf(address) as Promise<bigint>,
+            awaitWarmApproval(address, stakingAddress),
+          ]);
+          if (balance < value) throw new Error('Not enough USDC in your wallet.');
+
+          // Skip the on-chain read when the warm approval already granted MAX_APPROVAL.
+          if (!warmed) {
+            const allowance: bigint = await usdc.allowance(address, stakingAddress);
+            if (allowance < value) {
+              const approval = await usdc.approve(stakingAddress, MAX_APPROVAL);
+              await approval.wait();
+            }
           }
         }
 
@@ -215,8 +221,8 @@ async function recordStaking(txHash: string): Promise<void> {
         const tx = await staking.stake(value);
         setLastTxHash(tx.hash);
         await tx.wait();
-        await recordStaking(tx.hash);
-        await refresh();
+        // Chain confirmed — show success immediately. Recording and refresh are bookkeeping.
+        void recordStaking(tx.hash).then(() => refresh());
         return tx.hash as string;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Could not stake';

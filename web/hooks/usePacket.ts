@@ -17,7 +17,7 @@ import { Contract, formatUnits, parseUnits } from 'ethers';
 import { useAuth } from './useAuth';
 import { useMpcWallet } from './useMpcWallet';
 import { CONTRACTS } from '@/lib/config';
-import { chargePlatformFee, getTreasuryAddress } from '@/lib/platform-fee';
+import { chargeFeeAndAttach } from '@/lib/platform-fee';
 import { transferFee } from '@/lib/fees';
 
 const USDC_DECIMALS = 6;
@@ -103,24 +103,26 @@ export function useCreatePacket() {
         const signer = await getSigner();
         const usdc = new Contract(CONTRACTS.USDC, ERC20_ABI, signer);
 
-        if (address) {
-          const balance: bigint = await usdc.balanceOf(address);
-          if (balance < value + fee) {
-            // Both figures, because "not enough" on its own is unfalsifiable when the balance
-            // shown at the top of the same screen says otherwise.
-            throw new Error(
-              `Not enough USDC: this packet needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
-            );
-          }
-        }
-
         // The treasury address comes from the server, not from client config: it is where real
-        // money is being sent, so it should not be something a stale bundle can get wrong.
+        // money is being sent, so it should not be something a stale bundle can get wrong. It is
+        // fetched alongside the balance rather than after it — the two do not feed each other.
         setPhase('funding');
-        const infoRes = await fetch('/api/treasury', {
-        });
-        const info = await infoRes.json();
-        if (!infoRes.ok) throw new Error(info.error || 'Could not start the packet');
+        const [balance, info] = await Promise.all([
+          address ? (usdc.balanceOf(address) as Promise<bigint>) : Promise.resolve(null),
+          fetch('/api/treasury').then(async (r) => {
+            const body = await r.json();
+            if (!r.ok) throw new Error(body.error || 'Could not start the packet');
+            return body as { treasury: string };
+          }),
+        ]);
+
+        if (balance !== null && balance < value + fee) {
+          // Both figures, because "not enough" on its own is unfalsifiable when the balance
+          // shown at the top of the same screen says otherwise.
+          throw new Error(
+            `Not enough USDC: this packet needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
+          );
+        }
 
         const tx = await usdc.transfer(info.treasury, value);
         await tx.wait();
@@ -128,17 +130,13 @@ export function useCreatePacket() {
         // The fee is a separate transfer even though the packet's own funding already goes to
         // the treasury: one is the packet's money, held until claimed, the other is Saku's. A
         // single combined transfer would make the packet look overfunded by the fee.
-        const feeTxHash = await chargePlatformFee({
-          signer, usdcAddress: CONTRACTS.USDC, treasury: info.treasury, feeUnits: fee,
-        });
-
+        //
         setPhase('creating');
         const res = await fetch('/api/packet/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             txHash: tx.hash,
-            feeTxHash,
             slots: options.slots,
             splitMode: options.splitMode,
             theme: options.theme,
@@ -151,6 +149,19 @@ export function useCreatePacket() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Could not create the packet');
+
+        // It is charged behind this screen rather than in front of it. Creating the packet is
+        // what the person is waiting for — it is what produces the code they are about to share —
+        // and it used to sit behind the fee only because it carried the fee's hash. Start only
+        // after the row exists: otherwise a very fast fee could try to attach its hash before
+        // `/api/packet/create` has recorded the payment, leaving the reference unfilled.
+        chargeFeeAndAttach({
+          signer,
+          usdcAddress: CONTRACTS.USDC,
+          treasury: info.treasury,
+          feeUnits: fee,
+          txHash: tx.hash,
+        });
 
         setPacket({
           code: data.packet.code,

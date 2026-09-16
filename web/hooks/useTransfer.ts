@@ -120,43 +120,58 @@ export function useTransfer() {
         const signer = await getSigner();
         const usdc = new Contract(CONTRACTS.USDC, ERC20_ABI, signer);
 
-        // Checked before signing so an impossible transfer fails as a readable message rather
-        // than an on-chain revert the user pays gas for.
-        if (address) {
-          const balance: bigint = await usdc.balanceOf(address);
-          if (balance < value + fee) {
-            throw new Error(
-              `Not enough USDC: this transfer needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
-            );
-          }
-        }
+        // Two independent reads that used to run one after the other for no reason — the balance
+        // is on-chain, the treasury is a Saku route, and neither is an input to the other. The
+        // balance is checked before signing so an impossible transfer fails as a readable message
+        // rather than an on-chain revert the user pays gas for; the treasury is fetched now so the
+        // fee leg does not wait on a round trip afterwards.
+        const [balance, treasury] = await Promise.all([
+          address ? (usdc.balanceOf(address) as Promise<bigint>) : Promise.resolve(null),
+          getTreasuryAddress(isAuthenticated),
+        ]);
 
-        // Fetched before signing so the fee leg does not wait on a round trip afterwards.
-        const treasury = await getTreasuryAddress(isAuthenticated);
+        if (balance !== null && balance < value + fee) {
+          throw new Error(
+            `Not enough USDC: this transfer needs ${formatUnits(value + fee, USDC_DECIMALS)} including the fee, wallet holds ${formatUnits(balance, USDC_DECIMALS)}.`
+          );
+        }
 
         const tx = await usdc.transfer(to, value);
         setTxHash(tx.hash);
-        await tx.wait();
 
-        const feeTxHash = await chargePlatformFee({
-          signer,
-          usdcAddress: CONTRACTS.USDC,
-          treasury,
-          feeUnits: fee,
-        });
+        // The user's money has moved and the chain agrees. Everything after this point is Saku's
+        // own bookkeeping — collecting the platform fee and mirroring the transfer into the
+        // history cache — and none of it changes what the user is waiting to be told.
+        // We return a promise so the UI can attach a toast.promise to it, without making the user stare at a spinner.
+        const confirmation = (async () => {
+          await tx.wait();
 
-        // Record after confirmation: the route verifies the receipt, so submitting earlier
-        // would just 404 on a transaction the node has not mined yet.
-        await fetch('/api/transfer/record', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
-        }).catch(() => {
-          /* History is a cache. The transfer already happened. */
-        });
+          const feeTxHash = await chargePlatformFee({
+            signer,
+            usdcAddress: CONTRACTS.USDC,
+            treasury,
+            feeUnits: fee,
+          });
+
+          // Recorded after confirmation: the route verifies the receipt, so submitting earlier
+          // would just 404 on a transaction the node has not mined yet.
+          await fetch('/api/transfer/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ txHash: tx.hash, feeTxHash }),
+            // The request has to outlive the screen that started it. A send ends on a receipt the
+            // user reads and then navigates away from, and an in-flight fetch does not survive
+            // that on its own.
+            keepalive: true,
+          }).catch(() => {
+            /* History is a cache. The transfer already happened. */
+          });
+
+          return tx.hash;
+        })();
 
         setPhase('done');
-        return tx.hash as string;
+        return { txHash: tx.hash, confirmation };
       } catch (err) {
         setPhase('failed');
         const message = err instanceof Error ? err.message : 'Transfer failed';

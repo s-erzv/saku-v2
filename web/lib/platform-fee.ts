@@ -47,6 +47,44 @@ export async function getTreasuryAddress(signedIn: boolean): Promise<string | nu
 }
 
 /**
+ * Charge the fee behind whatever screen the user is already looking at, then attach its hash.
+ *
+ * For the flows whose recording call returns something the screen needs — the packet's code, the
+ * refreshed split bill — that call cannot be moved off the critical path, and it used to sit
+ * behind the fee because it carried the fee's hash in its body. Two seconds of a confirmed
+ * payment waiting on Saku's own bookkeeping.
+ *
+ * So the recording call goes first without the hash, and this puts the hash back afterwards
+ * through `/api/transactions/fee`. The ordering that matters is unchanged: the fee is still sent
+ * after the payment has confirmed, never before.
+ *
+ * Never throws, for the same reason `chargePlatformFee` does not — see the module comment.
+ */
+export function chargeFeeAndAttach(options: {
+  signer: Signer;
+  usdcAddress: string;
+  treasury: string | null;
+  feeUnits: bigint;
+  /** The payment this fee belongs to, as recorded in `transactions`. */
+  txHash: string;
+}): void {
+  void (async () => {
+    const feeTxHash = await chargePlatformFee(options);
+    if (!feeTxHash) return;
+
+    await fetch('/api/transactions/fee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txHash: options.txHash, feeTxHash }),
+      // The user is already past this screen; the request has to outlive it.
+      keepalive: true,
+    }).catch(() => {
+      /* The fee is on-chain either way. Only the reference in history is lost. */
+    });
+  })();
+}
+
+/**
  * Send the fee, after the transfer it belongs to has already confirmed.
  *
  * Returns the fee transaction's hash, or null if it could not be sent. Never throws — see the
