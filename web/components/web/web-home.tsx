@@ -6,8 +6,8 @@
  * The balance card leads, at the size of a hero, because it is the one thing on this screen with
  * any movement in it and the thing people open a wallet to look at. Beside it, the two questions
  * that follow — what happened lately, and what the balance is earning — each in a plain panel
- * that defers to the card. Under them, anything addressed to you that needs an answer, then every
- * service, which open in the tool panel rather than taking you off Home.
+ * that defers to the card. Under them, anything addressed to you that needs an answer, three
+ * featured services, then the full tool set. Tools open in the panel rather than leaving Home.
  *
  * The first-run pieces are the app's own (`OnboardingSlider`, `RecoveryGate`, `WalletSetup`).
  * `WalletSetup` in particular is what derives the wallet on a first sign-in, so the web Home must
@@ -18,9 +18,10 @@
  */
 
 import { useEffect } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowDownLeft, ArrowUpRight, type Icon } from "@phosphor-icons/react"
+import { ArrowDownLeft, ArrowUpRight, CaretRight, ChartLineUp, Gift, PaperPlaneTilt, type Icon } from "@phosphor-icons/react"
 import { Loader2 } from "lucide-react"
 import { useStaking } from "@/hooks/useStaking"
 import { useTransactions } from "@/hooks/useTransactions"
@@ -34,7 +35,41 @@ import RecoveryGate from "@/components/home/recovery-gate"
 import WaitingPackets from "@/components/home/waiting-packets"
 import WalletSetup from "@/components/home/wallet-setup"
 import IconTile from "@/components/ui/icon-tile"
+import { GradientBackground } from "@/components/ui/noisy-gradient-backgrounds"
 import { RECEIVE, TOOLS, useWebShell } from "@/components/web/shell"
+
+const FEATURED_SERVICES = [
+  {
+    id: "transfer" as const,
+    label: "Transfer",
+    title: "Send USDC",
+    accent: "with a phone number",
+    icon: PaperPlaneTilt,
+    dark: false,
+    gradient:
+      "radial-gradient(115% 155% at 100% 0%,#D5932E 0%,#F1C56D 25%,#FFF0C9 51%,#FFFDF8 82%,#FFFFFF 100%)",
+  },
+  {
+    id: "earn" as const,
+    label: "Earn",
+    title: "Stake your USDC",
+    accent: "let your balance grow",
+    icon: ChartLineUp,
+    dark: true,
+    gradient:
+      "radial-gradient(125% 165% at 100% 0%,#F2CB73 0%,#9A6B20 24%,#3A2B16 53%,#17140F 82%,#0F0E0B 100%)",
+  },
+  {
+    id: "packet" as const,
+    label: "Packet",
+    title: "Send a surprise",
+    accent: "open, smile, claim",
+    icon: Gift,
+    dark: false,
+    gradient:
+      "radial-gradient(125% 165% at 0% 100%,#C77D18 0%,#F0B84B 25%,#FFE5A0 51%,#FFF7E5 76%,#FFFFFF 100%)",
+  },
+]
 
 export default function WebHome() {
   const shell = useWebShell()
@@ -67,6 +102,8 @@ export default function WebHome() {
         <BillsToPay />
       </div>
 
+      <FeaturedServices />
+
       <section className="mt-10" aria-labelledby="services-title">
         <h2 id="services-title" className="text-[20px] font-semibold tracking-tight">
           Services
@@ -91,6 +128,84 @@ export default function WebHome() {
         </div>
       </section>
     </div>
+  )
+}
+
+function FeaturedServices() {
+  const shell = useWebShell()
+
+  return (
+    <section className="mt-10" aria-labelledby="featured-services-title">
+      <div className="relative flex min-h-[84px] items-end pr-28 @2xl:min-h-[92px] @2xl:pr-36">
+        <div>
+          <h2 id="featured-services-title" className="text-[20px] font-semibold tracking-tight">
+            Saku essentials
+          </h2>
+          <p className="mt-1 text-[13px] text-black/45">Three simple ways to move and grow your money.</p>
+        </div>
+        <Image
+          src="/hamster-headphone.png"
+          alt=""
+          width={1254}
+          height={1254}
+          sizes="(min-width: 672px) 140px, 112px"
+          className="pointer-events-none absolute -bottom-5 right-1 z-20 h-28 w-28 object-contain object-bottom drop-shadow-[0_10px_16px_rgb(40_27_10/0.12)] @2xl:-bottom-6 @2xl:right-3 @2xl:h-36 @2xl:w-36"
+        />
+      </div>
+
+      <div className="mt-3 grid snap-x snap-mandatory auto-cols-[88%] grid-flow-col gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden @2xl:grid-flow-row @2xl:grid-cols-3 @2xl:overflow-visible @2xl:pb-0">
+        {FEATURED_SERVICES.map((feature) => {
+          const Glyph = feature.icon
+          const active = shell?.activeTool === feature.id
+          return (
+            <button
+              key={feature.id}
+              type="button"
+              aria-expanded={active}
+              onClick={() => shell?.openTool(feature.id)}
+              className={`group relative min-h-[190px] snap-start overflow-hidden rounded-[24px] border p-5 text-left transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] ${
+                feature.dark
+                  ? "border-white/10 text-white shadow-[0_16px_36px_rgb(42_30_12/0.18)]"
+                  : "border-black/[0.06] text-ink shadow-[0_14px_34px_rgb(86_57_13/0.10)]"
+              } ${active ? "ring-2 ring-gilt/65" : ""}`}
+            >
+              <GradientBackground
+                customGradient={feature.gradient}
+                noisePatternSize={84}
+                noisePatternAlpha={18}
+                noiseIntensity={0.55}
+              />
+
+              <span className="relative z-10 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em]">
+                <span
+                  className={`flex h-7 w-7 items-center justify-center rounded-[9px] ${
+                    feature.dark ? "bg-white/12 text-[#F6D889]" : "bg-black/[0.07] text-[#8A5912]"
+                  }`}
+                >
+                  <Glyph size={15} weight="bold" />
+                </span>
+                <span className={feature.dark ? "text-white/65" : "text-black/50"}>{feature.label}</span>
+              </span>
+
+              <span className="relative z-10 mt-12 block pr-8">
+                <span className="block text-[20px] font-semibold leading-tight tracking-[-0.02em]">{feature.title}</span>
+                <span className={`mt-0.5 block text-[20px] font-semibold leading-tight tracking-[-0.02em] ${feature.dark ? "text-[#F5D47E]" : "text-[#A7680D]"}`}>
+                  {feature.accent}
+                </span>
+              </span>
+
+              <span
+                className={`absolute bottom-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full transition-transform group-hover:translate-x-0.5 ${
+                  feature.dark ? "bg-white/10 text-[#F5D47E]" : "bg-white/70 text-[#9A620F] shadow-sm"
+                }`}
+              >
+                <CaretRight size={16} weight="bold" />
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
