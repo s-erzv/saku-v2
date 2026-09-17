@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "next dev --experimental-https",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "node --import ./scripts/test-setup.mjs --test 'lib/**/*.test.ts'",
-    "verify:tx-policy": "./scripts/verify-tx-policy.sh"
+    "verify:tx-policy": "./scripts/verify-tx-policy.sh",
+    "build:extension": "node --env-file=.env extension/build.mjs"
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "^0.2.2",

@@ -133,22 +133,26 @@ export function unauthorized() {
   return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
 }
 
-function cookieOptions(maxAge: number) {
+function cookieOptions(maxAge: number, sameSite: 'lax' | 'none' = 'lax') {
   return {
     httpOnly: true,
-    // Cookies without this are sent over plain HTTP, where anything on the path can read them.
-    // Off in development because localhost is not served over TLS and the cookie would simply
-    // never be stored, which looks like a broken login rather than a missing flag.
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    // An embedded Side Panel requires SameSite=None, which browsers only accept with Secure.
+    secure: process.env.NODE_ENV === 'production' || sameSite === 'none',
+    sameSite,
+    // Keeps the extension's cookie scoped to its own Chrome top-level origin.
+    partitioned: sameSite === 'none',
     path: '/',
     maxAge,
   };
 }
 
 /** Attach a freshly minted session to a response. */
-export function setSessionCookie(response: NextResponse, token: string): NextResponse {
-  response.cookies.set(SESSION_COOKIE, token, cookieOptions(SESSION_TTL_SECONDS));
+export function setSessionCookie(
+  response: NextResponse,
+  token: string,
+  sameSite: 'lax' | 'none' = 'lax'
+): NextResponse {
+  response.cookies.set(SESSION_COOKIE, token, cookieOptions(SESSION_TTL_SECONDS, sameSite));
   return response;
 }
 
@@ -159,8 +163,11 @@ export function setSessionCookie(response: NextResponse, token: string): NextRes
  * will not clear a cookie it cannot match on path and security flags, and a sign-out that
  * silently leaves the cookie in place is the worst possible outcome for this function.
  */
-export function clearSessionCookie(response: NextResponse): NextResponse {
-  response.cookies.set(SESSION_COOKIE, '', cookieOptions(0));
+export function clearSessionCookie(
+  response: NextResponse,
+  sameSite: 'lax' | 'none' = 'lax'
+): NextResponse {
+  response.cookies.set(SESSION_COOKIE, '', cookieOptions(0, sameSite));
   return response;
 }
 

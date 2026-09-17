@@ -27,6 +27,7 @@ import { consumeOtpChallenge, type OtpFailureReason } from '@/lib/otp-challenge'
 import { MALFORMED_OTP, otpFailureMessage } from '@/lib/otp-message';
 import { generateToken } from '@/lib/jwt';
 import { setSessionCookie } from '@/lib/session';
+import { isExtensionSurfaceRequest } from '@/lib/extension-origin';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limiter';
 import { clientKey } from '@/lib/request-meta';
 import { logAuthEvent } from '@/lib/audit-log';
@@ -198,8 +199,9 @@ export async function POST(request: Request) {
         walletAddress: wallet?.address ?? null,
         needsWalletSetup: !wallet,
       }),
-      token
-    );
+        token,
+        isExtensionSurfaceRequest(request) ? 'none' : 'lax'
+      );
   } catch {
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }

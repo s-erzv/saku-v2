@@ -17,6 +17,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getSession, clearSessionCookie } from '@/lib/session';
+import { isExtensionSurfaceRequest } from '@/lib/extension-origin';
 import { logAuthEvent } from '@/lib/audit-log';
 
 export async function POST(request: Request) {
@@ -55,5 +56,8 @@ export async function POST(request: Request) {
     }
   }
 
-  return clearSessionCookie(NextResponse.json({ success: true }));
+  return clearSessionCookie(
+    NextResponse.json({ success: true }),
+    isExtensionSurfaceRequest(request) ? 'none' : 'lax'
+  );
 }

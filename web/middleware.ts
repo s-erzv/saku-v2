@@ -28,6 +28,7 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { extensionFrameAncestors } from '@/lib/extension-origin';
 
 /** Everything the browser is allowed to open a connection to. */
 function connectSources(): string[] {
@@ -85,10 +86,9 @@ function buildCsp(): string {
     // blocks a worker fails silently — no console error, no registration, nothing to debug.
     "worker-src 'self' blob:",
     "manifest-src 'self'",
-    // No third party is ever framed, and Saku is never framed by anyone: `frame-ancestors` is the
-    // header that actually stops clickjacking, `X-Frame-Options` being its legacy half.
+    // Only configured Chrome Side Panels may embed Saku. Every other origin stays excluded.
     "frame-src 'none'",
-    "frame-ancestors 'none'",
+    `frame-ancestors ${extensionFrameAncestors()}`,
     // Nothing on this site posts a form anywhere else. A phishing overlay that harvests a
     // verification code has to send it somewhere, and this closes the simplest route.
     "form-action 'self'",
@@ -103,7 +103,8 @@ export function middleware(request: NextRequest) {
 
   response.headers.set('Content-Security-Policy', buildCsp());
   response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
+  // X-Frame-Options cannot express a Chrome extension allowlist; CSP above is the stronger rule.
+  if (extensionFrameAncestors() === "'none'") response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set(
     'Permissions-Policy',

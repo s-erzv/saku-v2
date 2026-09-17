@@ -20,6 +20,7 @@ import {
 } from '@/lib/guardians';
 import { getSession, unauthorized, setSessionCookie, shouldRenew } from '@/lib/session';
 import { generateToken } from '@/lib/jwt';
+import { isExtensionSurfaceRequest } from '@/lib/extension-origin';
 
 export async function GET(request: Request) {
   const session = await getSession(request);
@@ -107,7 +108,7 @@ export async function GET(request: Request) {
         userId: session.userId,
         version: session.version,
       });
-      return setSessionCookie(response, token);
+      return setSessionCookie(response, token, isExtensionSurfaceRequest(request) ? 'none' : 'lax');
     }
 
     return response;

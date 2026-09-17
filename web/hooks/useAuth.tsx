@@ -89,6 +89,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+function extensionSurfaceHeaders() {
+  if (typeof window === 'undefined') return undefined
+  return new URLSearchParams(window.location.search).get('surface') === 'sidepanel'
+    ? { 'X-Saku-Surface': 'extension' }
+    : undefined
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SakuUser | null>(null)
   const [wallet, setWallet] = useState<SakuWallet | null>(null)
@@ -109,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async (): Promise<SakuUser | null> => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/me')
+      const response = await fetch('/api/me', { headers: extensionSurfaceHeaders() })
 
       // 401 means the cookie is absent, expired, forged, revoked, or points at a user that no
       // longer exists. All of those are "signed out" as far as this browser is concerned.
@@ -137,7 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearLocalState])
 
   useEffect(() => {
-    refreshUser()
+    // Schedule the initial read after commit so it cannot synchronously cascade through providers.
+    const task = window.setTimeout(() => void refreshUser(), 0)
+    return () => window.clearTimeout(task)
   }, [refreshUser])
 
   /**
@@ -154,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const scope = user?.phone_hash
 
     try {
-      await fetch('/api/logout', { method: 'POST' })
+      await fetch('/api/logout', { method: 'POST', headers: extensionSurfaceHeaders() })
     } catch {
       // The cookie may survive a failed request, so this is not a silent success. Sending the
       // user to the sign-in screen anyway is still right: staying put would strand them on a
