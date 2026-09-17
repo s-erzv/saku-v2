@@ -19,7 +19,7 @@ import {
   Scan,
   type Icon,
 } from "@phosphor-icons/react"
-import { Check, Loader2 } from "lucide-react"
+import { ArrowLeft, Check, Loader2 } from "lucide-react"
 import { formatUnits } from "ethers"
 import ExtensionLogin from "@/components/extension/extension-login"
 import ReceiveDialog from "@/components/web/receive-dialog"
@@ -48,6 +48,16 @@ const PAGES: Record<Exclude<ToolId, "pay">, ComponentType> = {
   packet: PacketPage,
   "split-bill": SplitBillPage,
   earn: EarnPage,
+}
+
+const VIEW_LABELS: Record<ExtensionView, string> = {
+  transfer: "Send",
+  pay: "Pay",
+  topup: "Top up",
+  withdraw: "Withdraw",
+  packet: "Packet",
+  "split-bill": "Split bill",
+  earn: "Earn",
 }
 
 const PRIMARY_ACTIONS: { id: ExtensionView | "receive"; label: string; icon: Icon }[] = [
@@ -160,16 +170,29 @@ export default function ExtensionSurface() {
 }
 
 function ExtensionFeature({ view, onClose }: { view: ExtensionView; onClose: () => void }) {
-  if (view === "pay") {
-    return (
-      <div className="min-h-dvh bg-white">
-        <PaySheet open variant="inline" onClose={onClose} />
-      </div>
-    )
-  }
+  const content = view === "pay"
+    ? <PaySheet open variant="inline" onClose={onClose} />
+    : (() => {
+        const Page = PAGES[view]
+        return <Page />
+      })()
 
-  const Page = PAGES[view]
-  return <Page />
+  return (
+    <div className="min-h-dvh bg-white font-sans">
+      <header className="flex h-14 items-center gap-2 border-b border-black/[0.07] px-4">
+        <button
+          type="button"
+          onClick={onClose}
+          className="-ml-2 flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-black/60 transition-colors hover:bg-black/[0.05] hover:text-black"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+        <span className="ml-auto text-sm font-semibold text-black/80">{VIEW_LABELS[view]}</span>
+      </header>
+      {content}
+    </div>
+  )
 }
 
 function ExtensionHome({
