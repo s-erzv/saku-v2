@@ -135,7 +135,7 @@ function FeaturedServices() {
   const shell = useWebShell()
 
   return (
-    <section className="mt-10" aria-labelledby="featured-services-title">
+    <section className="relative isolate mt-10" aria-labelledby="featured-services-title">
       <div className="relative flex min-h-[84px] items-end pr-28 @2xl:min-h-[92px] @2xl:pr-36">
         <div>
           <h2 id="featured-services-title" className="text-[20px] font-semibold tracking-tight">
@@ -149,11 +149,11 @@ function FeaturedServices() {
           width={1254}
           height={1254}
           sizes="(min-width: 672px) 140px, 112px"
-          className="pointer-events-none absolute -bottom-5 right-1 z-20 h-28 w-28 object-contain object-bottom drop-shadow-[0_10px_16px_rgb(40_27_10/0.12)] @2xl:-bottom-6 @2xl:right-3 @2xl:h-36 @2xl:w-36"
+          className="pointer-events-none absolute -bottom-5 right-1 z-0 h-28 w-28 object-contain object-bottom drop-shadow-[0_10px_16px_rgb(40_27_10/0.12)] @2xl:-bottom-6 @2xl:right-3 @2xl:h-36 @2xl:w-36"
         />
       </div>
 
-      <div className="mt-3 grid snap-x snap-mandatory auto-cols-[88%] grid-flow-col gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden @2xl:grid-flow-row @2xl:grid-cols-3 @2xl:overflow-visible @2xl:pb-0">
+      <div className="relative z-10 mt-3 grid snap-x snap-mandatory auto-cols-[88%] grid-flow-col gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden @2xl:grid-flow-row @2xl:grid-cols-3 @2xl:overflow-visible @2xl:pb-0">
         {FEATURED_SERVICES.map((feature) => {
           const Glyph = feature.icon
           const active = shell?.activeTool === feature.id
