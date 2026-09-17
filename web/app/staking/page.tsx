@@ -98,75 +98,57 @@ export default function StakingPage() {
           </div>
         ) : (
           <>
-            {/* Champagne gold — the gilt on the balance card's rim, laid out as a surface. Earn
-                once borrowed the card's dark slab, which made it read as a second balance
-                screen, and then Saku's orange, which the rest of the app no longer wears. Dark
-                belongs to the balance; gold is what the balance earns.
-
-                Ink is black-with-opacity, the same idiom as the rest of the app. White on a
-                #FFD364 top stop is unreadable, so the whole card flips to dark ink.
-
-                The small labels are `black/65` and not the `black/45` used elsewhere, which is
-                not a taste call: measured against the darker stop of this gradient, 45% gives a
-                contrast ratio of 2.9 where AA asks 4.5 for text this size, and 65% is the first
-                step that clears it on both stops. The large figures pass at any of these. */}
+            {/* Obsidian and antique gold tie this panel to Earn without repeating the balance card. */}
             <div
-              className="rounded-[2rem] p-6 space-y-5"
+              className="rounded-[2rem] border border-white/10 p-6 space-y-5 text-white"
               style={{
-                background: "linear-gradient(135deg, #F3E4C6 0%, #DDBA7C 100%)",
-                boxShadow: "0 20px 44px rgba(135, 101, 47, 0.2)",
+                background:
+                  "radial-gradient(120% 150% at 100% 0%, #E8C96F 0%, #9B7028 22%, #45351F 46%, #1B1710 72%, #0D0C09 100%)",
+                boxShadow: "0 22px 52px rgba(48, 35, 15, 0.3), inset 0 1px 0 rgba(255,255,255,0.12)",
               }}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[12px] font-medium text-black/65">
+                  <p className="text-[12px] font-medium text-white/60">
                     Current APY
                   </p>
                   <p className="text-4xl font-black tabular-nums mt-1">
                     {loadingInfo && !info ? "—" : `${info?.apy ?? "0.00"}${info?.apyCapped ? "%+" : "%"}`}
                   </p>
                 </div>
-                <div className="p-2.5 rounded-2xl bg-black/10">
+                <div className="p-2.5 rounded-2xl bg-white/10 text-[#F6D889] ring-1 ring-white/10">
                   <TrendingUp className="w-5 h-5" />
                 </div>
               </div>
 
               {info?.apyCapped && (
-                <p className="text-[11px] text-black/65 -mt-3">
+                <p className="text-[11px] text-white/60 -mt-3">
                   Early pool — few tokens staked against the funded reward budget skews the rate
                   this high. It settles as more is staked.
                 </p>
               )}
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-black/10">
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
                 <div>
-                  <p className="text-[12px] font-medium text-black/65">
+                  <p className="text-[12px] font-medium text-white/60">
                     You staked
                   </p>
                   <p className="text-xl font-black tabular-nums mt-0.5">{info?.staked ?? "0"}</p>
                 </div>
                 <div>
-                  <p className="text-[12px] font-medium text-black/65">
+                  <p className="text-[12px] font-medium text-white/60">
                     Earned
                   </p>
-                  {/* Was emerald, the one cold accent on the screen and the only place green
-                      carried meaning here. On the warm card it is simply ink like its
-                      neighbour: what makes it read as earnings is the label above it. */}
-                  <p className="text-xl font-black tabular-nums mt-0.5">
+                  <p className="text-xl font-black tabular-nums mt-0.5 text-[#F5D47E]">
                     {info?.pending ?? "0"}
                   </p>
                 </div>
               </div>
 
-              <p className="text-[11px] text-black/65">
+              <p className="text-[11px] text-white/55">
                 Pool total {info?.totalStaked ?? "0"} USDC · {info?.rewardReserve ?? "0"} USDC of
                 rewards still funded
               </p>
-              {/* Inside the card, because it acts on the figure two lines above it. Outside, in
-                  Saku orange, it was a second full-width accent button sitting directly above a
-                  black one — two primary actions in two different colours, neither deferring to
-                  the other. White on the gradient keeps it clearly the card's own action and
-                  leaves the black button below as the screen's single primary. */}
               {hasPending && (
                 <button
                   onClick={async () => {
@@ -177,7 +159,7 @@ export default function StakingPage() {
                     if (hash) setClaimed(earned)
                   }}
                   disabled={busy}
-                  className="w-full py-3 rounded-2xl bg-white font-bold text-sm shadow-sm disabled:opacity-60 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-2xl bg-[#F2D17D] text-[#1B160E] font-bold text-sm shadow-sm disabled:opacity-60 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
                   {action === "claiming" && <Loader2 className="w-4 h-4 animate-spin" />}
                   {action === "claiming" ? "Claiming…" : `Claim ${info?.pending} USDC`}

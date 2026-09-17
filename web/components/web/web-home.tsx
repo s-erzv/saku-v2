@@ -47,7 +47,7 @@ const FEATURED_SERVICES = [
     icon: PaperPlaneTilt,
     dark: false,
     gradient:
-      "radial-gradient(115% 155% at 100% 0%,#D5932E 0%,#F1C56D 25%,#FFF0C9 51%,#FFFDF8 82%,#FFFFFF 100%)",
+      "radial-gradient(115% 155% at 100% 0%,#C98A24 0%,#E5B44F 24%,#EED28A 49%,#D7C2A1 74%,#B8A58E 100%)",
   },
   {
     id: "earn" as const,
@@ -67,7 +67,7 @@ const FEATURED_SERVICES = [
     icon: Gift,
     dark: false,
     gradient:
-      "radial-gradient(125% 165% at 0% 100%,#C77D18 0%,#F0B84B 25%,#FFE5A0 51%,#FFF7E5 76%,#FFFFFF 100%)",
+      "radial-gradient(125% 165% at 0% 100%,#B96F10 0%,#DE9E29 24%,#F0C766 48%,#D9BA86 73%,#A89983 100%)",
   },
 ]
 

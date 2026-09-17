@@ -168,7 +168,7 @@ export default function AppFrame({ children }: { children: ReactNode }) {
     <WebShellContext.Provider value={shell}>
       <div
         data-app-surface={mode === "app" ? "" : undefined}
-        className={web ? "min-h-dvh w-full min-w-0 max-w-full overflow-x-clip bg-canvas font-sans text-ink" : "min-h-dvh w-full min-w-0 max-w-full overflow-x-clip"}
+        className={web ? "min-h-dvh w-full min-w-0 max-w-full overflow-x-clip bg-canvas font-sans text-ink lg:pr-[88px]" : "min-h-dvh w-full min-w-0 max-w-full overflow-x-clip"}
       >
         {shell ? <WebNavbar pathname={pathname} walletAddress={walletAddress} version={version} /> : null}
 
@@ -502,9 +502,9 @@ function ToolRail({ pathname, shell }: { pathname: string; shell: WebShell }) {
   return (
     <nav
       aria-label="Tools"
-      className="fixed inset-x-0 bottom-0 z-40 w-full max-w-full overflow-hidden border-t border-black/[0.06] bg-white pb-[env(safe-area-inset-bottom)] lg:sticky lg:inset-auto lg:top-16 lg:z-30 lg:h-[calc(100dvh-4rem)] lg:w-[88px] lg:shrink-0 lg:border-l lg:border-t-0 lg:pb-0"
+      className="fixed inset-x-0 bottom-0 z-40 w-full max-w-full overflow-hidden border-t border-black/[0.06] bg-white pb-[env(safe-area-inset-bottom)] lg:inset-y-0 lg:left-auto lg:right-0 lg:z-30 lg:h-dvh lg:w-[88px] lg:border-l lg:border-t-0 lg:pb-0"
     >
-      <div className="grid grid-cols-8 px-1 py-1.5 lg:flex lg:h-full lg:flex-col lg:overflow-y-auto lg:px-2 lg:py-3">
+      <div className="grid grid-cols-8 px-1 py-1.5 lg:flex lg:flex-col lg:px-2 lg:py-3">
         <button
           onClick={() => (shell.activeTool ? shell.closeTool() : shell.openTool("transfer"))}
           aria-label={shell.activeTool ? "Close panel" : "Open tools"}
